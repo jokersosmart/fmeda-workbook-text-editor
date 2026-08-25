@@ -37,6 +37,7 @@ def main() -> int:
         f"({manifest['sheet_count']} sheets, {manifest['formula_count']} formulas)"
     )
     print(f"Core workspace: {args.output_dir / 'normalized'}")
+    print(f"Readable entrypoint: {args.output_dir / 'readable' / 'index.md'}")
     print(f"Derived workbook: {args.output_dir / manifest['derived_file']}")
     if manifest.get("editor"):
         print(f"Editor adapter: {args.output_dir / manifest['editor']['root']}")

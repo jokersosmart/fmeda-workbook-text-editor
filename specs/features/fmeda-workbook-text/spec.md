@@ -1,7 +1,7 @@
 # Feature Specification: FMEDA Workbook Text Workspace
 
 **Feature Branch**: `fmeda-workbook-text`  
-**Status**: Draft / Vertical Slice 1  
+**Status**: Draft / Vertical Slice 2 — readable core output
 **Input**: 將原始 FMEDA Excel 轉成可獨立運作、可追溯的純文字模型；Markdown Block Editor 為可選的協同 adapter。
 
 ## 1. 目標與邊界
@@ -71,6 +71,11 @@
 2. `normalized/Step03_summary.md` 以結論、風險、證據、下一步順序呈現。
 3. 任何錯誤與未解析引用可回查至 sheet + cell。
 4. 摘要數字與 workbook-v2／formula catalog 使用同一份資料來源。
+5. core-only workspace 必須產生 `readable/index.md`，並由它導向工作表閱讀頁、`review-queue.md`、`formula-guide.md` 與完整 machine artifacts。
+6. 每張工作表閱讀頁必須先呈現結論與狀態分布，再呈現輸入／常數與公式的 bounded sample；完整資料不得因展示上限被刪除。
+7. readable workspace 必須產生 `readable/manifest.json`，保存 schema、source hash、數量、artifact paths 與 detail limits。
+8. readable 頁面的每一個重要公式樣本必須能回查 `formula_raw`、`cached_value`、`calculation_status`、`formula_id`、source cell 與 source hash。
+9. readable 的優先注意工作表只能依 parser 訊號排序，且必須明確標示不等同於 FMEDA 安全／失效率語意判讀。
 
 ## 4. 非功能要求
 
@@ -78,6 +83,8 @@
 - **Traceability**：所有重要結果均可回到來源檔、工作表、儲存格與公式 ID。
 - **Reversibility**：任一階段失敗都能刪除 workspace 而不影響 source。
 - **Scalability**：大型工作表使用 sparse extraction 與 per-sheet externalization；摘要不得強制展開全部公式。
+- **Progressive disclosure**：readable layer 先提供工作簿摘要、review queue 與工作表結論，再以 bounded sample 指向完整 JSON／CSV。
+- **Readable limits**：每張工作表最多展示 120 筆公式與 120 筆輸入／常數，review queue 最多展示 200 筆；上限必須寫入 readable manifest。
 - **Optional Editor compatibility**：核心不依賴 Editor；啟用時，Editor adapter 只讀取共用 workspace 的 Markdown、sidecar 與 provenance，FMEDA metadata 透過 extension 欄位保存。
 - **Explicit uncertainty**：`cached_value`、`recalculated_value`、`error`、`unresolved` 必須分開表示。
 

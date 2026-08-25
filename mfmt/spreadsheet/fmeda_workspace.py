@@ -25,6 +25,9 @@ PROFILE = "spreadsheet-fmeda"
 EDITOR_SIDECAR_SCHEMA = "fmeda-editor-sidecar-v1"
 RELATIONS_SCHEMA = "editor-relations-v0.2"
 MAX_FORMULA_BLOCKS_PER_SHEET = 2_000
+READABLE_SCHEMA = "fmeda-readable-v1"
+MAX_READABLE_FORMULAS_PER_SHEET = 120
+MAX_READABLE_INPUTS_PER_SHEET = 120
 
 _CELL_REF_RE = re.compile(r"\$?[A-Z]{1,3}\$?\d+(?::\$?[A-Z]{1,3}\$?\d+)?")
 _EXTERNAL_REF_RE = re.compile(
@@ -272,6 +275,14 @@ class FmedaWorkspaceBuilder:
         self._write_dependency_edges(edge_rows)
         self._write_review_items(review_items)
         self._write_summary(workbook_model, formula_rows, edge_rows, review_items)
+        readable_manifest = self._write_readable_workspace(
+            workbook_model,
+            sheet_models,
+            formula_rows,
+            edge_rows,
+            review_items,
+            source_hash,
+        )
         editor_manifest = None
         if self.include_editor:
             from .fmeda_editor_adapter import FmedaEditorAdapter
@@ -299,6 +310,7 @@ class FmedaWorkspaceBuilder:
             "dependency_edge_count": len(edge_rows),
             "review_item_count": len(review_items),
             "calculation_mode": "source_cached_values",
+            "readable": readable_manifest,
             "editor": editor_manifest,
             "sheets": sheet_entries,
         }
@@ -496,6 +508,7 @@ class FmedaWorkspaceBuilder:
             f"**Schema**: `{workbook['schema_version']}`  ",
             f"**Profile**: `{workbook['profile']}`  ",
             f"**計算狀態**: `{workbook['source']['calculation_mode']}`  ",
+            "**Readable 入口**: [readable/index.md](../readable/index.md)  ",
             f"**工作表數**: {len(workbook['sheets'])}  ",
             f"**公式數**: {len(formulas)}  ",
             f"**依賴邊數**: {len(edges)}  ",
@@ -529,6 +542,399 @@ class FmedaWorkspaceBuilder:
             "\n".join(lines), encoding="utf-8"
         )
 
+    def _write_readable_workspace(
+        self,
+        workbook: dict[str, Any],
+        sheet_models: list[dict[str, Any]],
+        formulas: list[dict[str, Any]],
+        edges: list[dict[str, Any]],
+        reviews: list[dict[str, Any]],
+        source_hash: str,
+    ) -> dict[str, Any]:
+        """Write the human-first core reading layer without duplicating truth.
+
+        The machine-readable normalized artifacts remain authoritative. This
+        layer adds navigation, bounded samples, and explanations so a reader
+        does not need to open a 500k-formula CSV before understanding the
+        workbook status.
+        """
+        root = self.workspace / "readable"
+        sheets_root = root / "sheets"
+        sheets_root.mkdir(parents=True, exist_ok=True)
+        formulas_by_sheet: dict[str, list[dict[str, Any]]] = {}
+        for row in formulas:
+            formulas_by_sheet.setdefault(str(row["sheet"]), []).append(row)
+        reviews_by_sheet: dict[str, list[dict[str, Any]]] = {}
+        for item in reviews:
+            source_cell = str(item.get("source_cell", ""))
+            sheet_name = source_cell.split("!", 1)[0] if "!" in source_cell else ""
+            reviews_by_sheet.setdefault(sheet_name, []).append(item)
+        edges_by_sheet: dict[str, list[dict[str, Any]]] = {}
+        for edge in edges:
+            source_cell = str(edge.get("source", ""))
+            sheet_name = source_cell.split("!", 1)[0] if "!" in source_cell else ""
+            edges_by_sheet.setdefault(sheet_name, []).append(edge)
+
+        readable_sheets: list[dict[str, Any]] = []
+        for sheet in sheet_models:
+            meta = dict(sheet.get("sheet_meta") or {})
+            name = str(meta.get("name") or "Sheet")
+            index = int(meta.get("index") or len(readable_sheets) + 1)
+            safe_name = _safe_sheet_name(name, index)
+            output_name = f"{safe_name}.md"
+            output_path = sheets_root / output_name
+            cells = list((sheet.get("cells") or {}).values())
+            sheet_formulas = formulas_by_sheet.get(name, [])
+            sheet_reviews = reviews_by_sheet.get(name, [])
+            sheet_edges = edges_by_sheet.get(name, [])
+            status_counts = Counter(
+                str(cell.get("calculation_status") or "unknown") for cell in cells
+            )
+            inputs = [
+                cell
+                for cell in cells
+                if not cell.get("formula")
+                and cell.get("value") is not None
+                and not _is_error(cell.get("value"))
+            ]
+            formula_sample = sheet_formulas[:MAX_READABLE_FORMULAS_PER_SHEET]
+            input_sample = sorted(inputs, key=lambda cell: str(cell.get("address", "")))[:MAX_READABLE_INPUTS_PER_SHEET]
+            function_counts = Counter(
+                function_name
+                for row in sheet_formulas
+                for function_name in str(row.get("function_names") or "").split(";")
+                if function_name
+            )
+            external_dependency_count = sum(
+                1 for edge in sheet_edges if edge.get("reference_kind") == "external_reference"
+            )
+            formula_error_count = sum(
+                1 for item in sheet_reviews if item.get("kind") == "formula_error"
+            )
+            merged = meta.get("merged_ranges") or meta.get("merged_cells") or []
+            dimension = meta.get("dimension") or meta.get("dimensions") or "not recorded"
+            if isinstance(dimension, dict):
+                max_row = dimension.get("max_row")
+                max_col = dimension.get("max_col")
+                if max_row is not None and max_col is not None:
+                    dimension_label = f"rows 1–{max_row}, columns 1–{max_col}"
+                else:
+                    dimension_label = json.dumps(dimension, ensure_ascii=False, sort_keys=True)
+            else:
+                dimension_label = str(dimension)
+            sheet_json = next(
+                (
+                    entry.get("json_file")
+                    for entry in workbook.get("sheets", [])
+                    if str(entry.get("name")) == name
+                ),
+                "",
+            )
+
+            def text(value: Any) -> str:
+                return str(_json_value(value) if value is not None else "—").replace("|", "\\|").replace("\n", " ")
+
+            lines = [
+                f"# {name}",
+                "",
+                "> 這一頁先說明工作表狀態，再列出關鍵輸入與公式樣本；完整資料請沿著 provenance 連結回查。",
+                "",
+                "## 一、先看結論",
+                "",
+                f"- 工作表位置：第 {index} 張",
+                f"- 工作表尺寸：`{dimension_label}`",
+                f"- 合併儲存格範圍：{len(merged) if isinstance(merged, (list, tuple)) else text(merged)}",
+                f"- 公式數：{len(sheet_formulas)}",
+                f"- 非空輸入／常數數：{len(inputs)}",
+                f"- 待審查項目：{len(sheet_reviews)}",
+                f"- 外部引用數：{external_dependency_count}",
+                f"- 公式錯誤訊號數：{formula_error_count}",
+                f"- 使用的公式函數：{', '.join(f'{name} ({count})' for name, count in sorted(function_counts.items())) or '未辨識到函數名稱'}",
+                "",
+                "### 狀態分布",
+                "",
+                "| 狀態 | 數量 | 怎麼解讀 |",
+                "|---|---:|---|",
+            ]
+            status_meanings = {
+                "input_or_constant": "可能是輸入或固定值，需依欄位語意判斷",
+                "cached_value": "公式存在，值是來源 Excel 的快取結果",
+                "error": "公式或來源包含錯誤狀態",
+                "not_calculated": "公式存在但沒有快取結果",
+                "empty": "空白儲存格",
+                "unknown": "轉換器未提供狀態",
+            }
+            for status, count in sorted(status_counts.items()):
+                lines.append(f"| `{status}` | {count} | {status_meanings.get(status, '請回查 workbook JSON') } |")
+            lines.extend(["", "### 目前需要注意", ""])
+            if sheet_reviews:
+                for item in sheet_reviews[:20]:
+                    lines.append(
+                        f"- `{item.get('kind')}` `{item.get('source_cell')}`：{item.get('message')}（`{item.get('status')}`）"
+                    )
+                if len(sheet_reviews) > 20:
+                    lines.append(
+                        f"- 其餘 {len(sheet_reviews) - 20} 項請查看 `../review-queue.md` 或完整 `../../normalized/review_items.json`。"
+                    )
+            else:
+                lines.append("目前沒有被核心 parser 標記的待審查項目。")
+
+            lines.extend(
+                [
+                    "",
+                    "## 二、關鍵輸入／常數（前 120 筆）",
+                    "",
+                    "| 儲存格 | 值 | 原始型別 | 來源 |",
+                    "|---|---|---|---|",
+                ]
+            )
+            for cell in input_sample:
+                address = str(cell.get("address") or "")
+                lines.append(
+                    f"| `{name}!{address}` | `{text(cell.get('value'))}` | `{text(cell.get('data_type'))}` | `source: {source_hash}` |"
+                )
+            if len(inputs) > len(input_sample):
+                full_sheet_path = f"../../{sheet_json}" if sheet_json else "../../normalized/sheets/<sheet>.json"
+                lines.extend(
+                    [
+                        "",
+                        f"> 這一頁顯示前 {len(input_sample)} 筆；完整儲存格請查看 [工作表 JSON]({full_sheet_path})。",
+                        "",
+                    ]
+                )
+            elif not input_sample:
+                lines.append("| — | （沒有非空輸入／常數） | — | — |")
+
+            lines.extend(
+                [
+                    "",
+                    "## 三、公式計算摘要（前 120 筆）",
+                    "",
+                    "> 欄位對應：`formula_raw` 是原始公式；`cached_value` 是來源快取結果；`calculation_status` 是公式狀態；`formula_id` 是可回查索引。",
+                    "",
+                    "| 儲存格 | 公式 | 快取結果 | 狀態 | Formula ID |",
+                    "|---|---|---|---|---|",
+                ]
+            )
+            for row in formula_sample:
+                lines.append(
+                    f"| `{row['source_cell']}` | `{text(row.get('formula_raw'))}` | `{text(row.get('cached_value'))}` | `{row.get('status')}` | `{row.get('formula_id')}` |"
+                )
+            if len(sheet_formulas) > len(formula_sample):
+                lines.extend(
+                    [
+                        "",
+                        f"> 公式數量為 {len(sheet_formulas)}，此頁只顯示前 {len(formula_sample)} 筆，避免大型工作表變成無法閱讀的長頁面。完整公式請查閱 `../../normalized/formula_catalog.csv`。",
+                        "",
+                    ]
+                )
+            elif not formula_sample:
+                lines.append("| — | （沒有公式） | — | — | — |")
+
+            lines.extend(
+                [
+                    "",
+                    "## 四、如何追溯",
+                    "",
+                    f"- 完整工作表 JSON：[normalized/sheets/{Path(sheet_json).name if sheet_json else '<sheet>.json'}](../../{sheet_json or 'normalized/sheets/<sheet>.json'})",
+                    "- 完整公式目錄：[normalized/formula_catalog.csv](../../normalized/formula_catalog.csv)",
+                    "- 依賴索引：[normalized/dependency_edges.csv](../../normalized/dependency_edges.csv)",
+                    "- 審查佇列：[readable/review-queue.md](../review-queue.md)",
+                    f"- `source_sha256`：`{source_hash}`",
+                    "",
+                ]
+            )
+            output_path.write_text("\n".join(lines), encoding="utf-8")
+            readable_sheets.append(
+                {
+                    "index": index,
+                    "name": name,
+                    "file": f"readable/sheets/{output_name}",
+                    "formula_count": len(sheet_formulas),
+                    "input_count": len(inputs),
+                    "review_count": len(sheet_reviews),
+                    "external_dependency_count": external_dependency_count,
+                    "formula_error_count": formula_error_count,
+                    "formula_detail_limit": MAX_READABLE_FORMULAS_PER_SHEET,
+                }
+            )
+
+        index_lines = [
+            "# FMEDA Core Reading Index",
+            "",
+            "> 先看這裡：這是給審查者、主管與跨部門人員的入口。先看整體狀態，再按工作表深入；完整公式與依賴永遠回查 normalized 目錄。",
+            "",
+            "## 0. 這份 workspace 是什麼",
+            "",
+            "- 這是核心純文字閱讀層，不依賴 Markdown Editor。",
+            "- 原始 Excel 只讀取並保存於 `../source/`；衍生工作版本位於 `../derived/`。",
+            f"- 來源檔：`{workbook['source']['filename']}`",
+            f"- `source_sha256`：`{source_hash}`",
+            f"- 計算狀態：`{workbook['source']['calculation_mode']}`",
+            "",
+            "## 1. 先看總體數字",
+            "",
+            "| 指標 | 數值 | 回查位置 |",
+            "|---|---:|---|",
+            f"| 工作表 | {len(workbook.get('sheets', []))} | `manifest.json` |",
+            f"| 公式 | {len(formulas)} | `../normalized/formula_catalog.csv` |",
+            f"| 依賴邊 | {len(edges)} | `../normalized/dependency_edges.csv` |",
+            f"| 待審查項目 | {len(reviews)} | [`review-queue.md`](review-queue.md) |",
+            "",
+            "## 2. 審查順序",
+            "",
+            "1. 先看 [`review-queue.md`](review-queue.md)，確認錯誤、外部引用與未計算項目。",
+            "2. 再看 [`formula-guide.md`](formula-guide.md)，了解 `cached_value`、`error` 與 `not_calculated` 的差異。",
+            "3. 依工作表閱讀下表；需要公式細節時，再回查 `formula_catalog.csv`。",
+            "4. 需要更深層的依賴追蹤時，使用 `dependency_edges.csv` 與工作表 JSON。",
+            "",
+            "## 3. 工作表索引",
+            "",
+            "| # | 工作表 | 閱讀頁 | 公式 | 輸入／常數 | 待審查 |",
+            "|---:|---|---|---:|---:|---:|",
+        ]
+        for sheet in readable_sheets:
+            index_lines.append(
+                f"| {sheet['index']} | `{sheet['name']}` | [{Path(sheet['file']).name}](sheets/{Path(sheet['file']).name}) | {sheet['formula_count']} | {sheet['input_count']} | {sheet['review_count']} |"
+            )
+        priority_sheets = sorted(
+            readable_sheets,
+            key=lambda sheet: (
+                -sheet["review_count"],
+                -sheet["formula_error_count"],
+                -sheet["external_dependency_count"],
+                sheet["index"],
+            ),
+        )
+        priority_lines = [
+            "## 1.5. 優先注意工作表",
+            "",
+            "> 以下只依核心 parser 的待審查、公式錯誤與外部依賴訊號排序；它不是 FMEDA 安全關鍵性或失效率的語意判讀。",
+            "",
+            "| 順位 | 工作表 | 待審查 | 公式錯誤訊號 | 外部依賴 |",
+            "|---:|---|---:|---:|---:|",
+        ]
+        for rank, sheet in enumerate(priority_sheets[:10], start=1):
+            priority_lines.append(
+                f"| {rank} | [{sheet['name']}](sheets/{Path(sheet['file']).name}) | {sheet['review_count']} | {sheet['formula_error_count']} | {sheet['external_dependency_count']} |"
+            )
+        priority_lines.append("")
+        insert_at = index_lines.index("## 2. 審查順序")
+        index_lines[insert_at:insert_at] = priority_lines
+        index_lines.extend(
+            [
+                "",
+                "## 4. 核心資料連結",
+                "",
+                "- [workbook-v2 JSON](../normalized/Step03_workbook.json)",
+                "- [formula catalog](../normalized/formula_catalog.csv)",
+                "- [dependency edges](../normalized/dependency_edges.csv)",
+                "- [review items](../normalized/review_items.json)",
+                "- [import report](../reports/import-report.md)",
+                "",
+            ]
+        )
+        (root / "index.md").write_text("\n".join(index_lines), encoding="utf-8")
+
+        review_counts = Counter(str(item.get("kind", "unknown")) for item in reviews)
+        review_status_counts = Counter(str(item.get("status", "unknown")) for item in reviews)
+        review_lines = [
+            "# Review Queue",
+            "",
+            "> 這份佇列只列出需要人判斷或回查的事項；它不是把錯誤清掉，而是把不確定性集中到可操作的位置。",
+            "",
+            f"- `source_sha256`：`{source_hash}`",
+            f"- 總項目：{len(reviews)}",
+            "",
+            "## 按類型統計",
+            "",
+            "| 類型 | 數量 |",
+            "|---|---:|",
+        ]
+        for kind, count in sorted(review_counts.items()):
+            review_lines.append(f"| `{kind}` | {count} |")
+        review_lines.extend(["", "## 按狀態統計", "", "| 狀態 | 數量 |", "|---|---:|"])
+        for status, count in sorted(review_status_counts.items()):
+            review_lines.append(f"| `{status}` | {count} |")
+        review_lines.extend(["", "## 先看這些項目（最多 200 筆）", ""])
+        if reviews:
+            for item in reviews[:200]:
+                review_lines.append(
+                    f"- `{item.get('kind')}` `{item.get('source_cell')}`：{item.get('message')}（狀態：`{item.get('status')}`）"
+                )
+            if len(reviews) > 200:
+                review_lines.append(f"- 其餘 {len(reviews) - 200} 項請查看 `../normalized/review_items.json`。")
+        else:
+            review_lines.append("目前沒有待審查項目。")
+        (root / "review-queue.md").write_text("\n".join(review_lines) + "\n", encoding="utf-8")
+
+        formula_guide = "\n".join(
+            [
+                "# Formula and Result Guide",
+                "",
+                "> 這一頁說明如何閱讀公式與結果；它不會把 cached value 冒充成最新重算值。",
+                "",
+                "## 欄位意義",
+                "",
+                "| 欄位 | 意義 |",
+                "|---|---|",
+                "| `formula_raw` | 原始 Excel 公式文字，作為最重要的公式證據。 |",
+                "| `cached_value` | Excel 檔案保存的公式快取值，不代表本工具重新計算。 |",
+                "| `calculation_status` | `cached_value`、`error`、`not_calculated` 等狀態。 |",
+                "| `formula_id` | 讓 Markdown、JSON、CSV 與 Editor adapter 共用的穩定索引。 |",
+                "| `dependency_edges` | 公式引用的同表、跨表或外部工作簿範圍。 |",
+                "| `source_sha256` | 對應到來源檔版本，避免不同檔案的結果被混用。 |",
+                "",
+                "## 狀態判讀",
+                "",
+                "- `cached_value`：公式存在且有來源快取結果；如果需要新結果，必須另行執行受控重算。",
+                "- `error`：公式或來源結果是 Excel 錯誤，不能當成 0 或空白。",
+                "- `not_calculated`：公式存在，但檔案沒有保存計算結果。",
+                "- `input_or_constant`：非公式內容；是否可編輯要由 profile 或 patch contract 決定。",
+                "- `unresolved`：外部引用尚未完成來源對應，不能自行猜測。",
+                "",
+                "## 建議閱讀方法",
+                "",
+                "1. 先看工作表頁面的摘要與 review queue。",
+                "2. 再從 `formula_id` 回查完整 formula catalog。",
+                "3. 再從 `dependency_edges.csv` 確認公式是否依賴外部檔案。",
+                "4. 最後才判斷是否需要 Calc 重算或 FMEDA 工程師審查。",
+                "",
+            ]
+        )
+        (root / "formula-guide.md").write_text(formula_guide, encoding="utf-8")
+
+        readable_manifest = {
+            "schema_version": READABLE_SCHEMA,
+            "source_sha256": source_hash,
+            "source_file": workbook["source"]["source_file"],
+            "calculation_mode": workbook["source"]["calculation_mode"],
+            "index": "readable/index.md",
+            "review_queue": "readable/review-queue.md",
+            "formula_guide": "readable/formula-guide.md",
+            "sheet_count": len(readable_sheets),
+            "formula_count": len(formulas),
+            "dependency_edge_count": len(edges),
+            "review_item_count": len(reviews),
+            "formula_detail_limit": MAX_READABLE_FORMULAS_PER_SHEET,
+            "input_detail_limit": MAX_READABLE_INPUTS_PER_SHEET,
+            "sheets": readable_sheets,
+        }
+        (root / "manifest.json").write_text(
+            json.dumps(readable_manifest, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return {
+            "schema_version": READABLE_SCHEMA,
+            "index": "readable/index.md",
+            "manifest": "readable/manifest.json",
+            "review_queue": "readable/review-queue.md",
+            "formula_guide": "readable/formula-guide.md",
+            "sheet_count": len(readable_sheets),
+            "formula_count": len(formulas),
+            "review_item_count": len(reviews),
+        }
+
     @staticmethod
     def _build_import_report(manifest: dict[str, Any], reviews: list[dict[str, Any]]) -> str:
         lines = [
@@ -539,6 +945,7 @@ class FmedaWorkspaceBuilder:
             f"**Derived workbook**: `{manifest['derived_file']}`  ",
             f"**Schema**: `{manifest['schema_version']}`  ",
             f"**Profile**: `{manifest['profile']}`  ",
+            "**Readable 入口**: [readable/index.md](../readable/index.md)  ",
             "",
             "## Counts",
             "",

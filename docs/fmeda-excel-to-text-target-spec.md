@@ -22,7 +22,7 @@
 |---|---|---|
 | `source manifest` | 保存原始檔名、來源 hash、版本與輸入資訊 | 是，代表來源證據 |
 | `workbook.json` | 保存工作簿、工作表、儲存格、公式、結果與 metadata | 是，代表結構化計算模型 |
-| `readable.md` | 讓審查者、主管與跨部門人員閱讀 | 否，是人類閱讀視圖 |
+| `readable/` workspace | 讓審查者、主管與跨部門人員先看摘要，再逐層深入 | 否，是人類閱讀視圖 |
 | `formula_catalog`／`dependency_edges` | 查詢公式、函數、引用範圍與依賴關係 | 是，代表可驗證索引 |
 | `validation／review report` | 保存差異、錯誤、外部引用與人工判定 | 是，代表審查證據 |
 
@@ -94,6 +94,8 @@ Output 不只是交付檔案，也要能回到下一輪成為 Library。這就�
 
 人類可以直接閱讀 Markdown，不需要安裝或啟用 Editor；Editor 只是可以額外提供導覽、註記與受控編輯的可選配介面。Markdown 不應該把數十萬個公式全部攤在一頁。閱讀輸出應採摘要、分區、索引與按需展開：
 
+目前 core-only 的實體格式是 `readable/index.md`、`readable/sheets/*.md`、`readable/review-queue.md`、`readable/formula-guide.md` 與 `readable/manifest.json`。每張工作表最多展示 120 筆公式與 120 筆輸入／常數，review queue 最多展示 200 筆；這些上限只控制人讀視圖，完整公式、儲存格與 review details 仍由 `normalized/` 保存。
+
 | 閱讀層 | 主要內容 |
 |---|---|
 | 主管層 | 工作簿目的、主要結果、風險、未完成事項與下一步 |
@@ -152,7 +154,7 @@ Synthetic fixture 可以驗證程式機制，例如證明 materialization 可以
   → source manifest 與 hash
   → workbook-v2 結構化模型
   → 公式／錯誤／依賴索引
-  → 人類可讀 Markdown workspace
+  → 人類可讀 Markdown workspace（`readable/`）
   → 可選：Editor workspace adapter
   → validation report
   → 明確標記未解析與待審查事項
@@ -165,7 +167,7 @@ Synthetic fixture 可以驗證程式機制，例如證明 materialization 可以
 | 驗收面向 | 必須達成 |
 |---|---|
 | 來源保全 | 原始 Excel hash 不變，且轉換失敗也不影響來源 |
-| 可讀性 | 審查者、主管與跨部門可先看摘要，再展開細節 |
+| 可讀性 | 審查者、主管與跨部門可先看 `readable/index.md` 摘要，再展開工作表與完整 artifact 細節 |
 | 公式保存 | 每個公式可回查原文、座標、快取值與狀態 |
 | 錯誤真實性 | 錯誤、空白、0、未重算與未解析外部引用不混淆 |
 | 結構保存 | 工作表順序、名稱、合併儲存格與關鍵 metadata 可回查 |

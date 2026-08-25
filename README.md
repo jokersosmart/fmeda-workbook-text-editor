@@ -6,26 +6,30 @@
 
 ## Current slice
 
-目前完成的是 Slice 1：read-only FMEDA core workspace。它會保留來源 Excel 的 SHA-256，另存一份 derived workbook，並輸出 `workbook-v2` JSON、公式目錄、依賴索引、審查清單與分層摘要；Editor-compatible Markdown／sidecar 只有在明確啟用 adapter 時才產生。
+目前已完成 core-only workspace、受控 input patch、revision validation、大型 FMEDA streaming validation、Calc-compatible temporary-copy recalculation、外部工作簿 materialization、三段式 acceptance profile，以及完整思考規則 catalog。現在的第二階段把人類閱讀層整理成 `readable/`：先看摘要與 review queue，再按工作表深入到公式與來源證據；完整 machine truth 仍保留在 `normalized/`。
 
-第一階段不會把公式改寫成 Python，也不會讓普通 Markdown 編輯覆蓋公式。Excel 快取值會標記為 `source_cached_values`；`error`、空白、0、未計算與外部引用未解析狀態會分開保存。
+`readable/` 不依賴 Editor。它包含 `readable/index.md`、每張工作表的 Markdown、`review-queue.md`、`formula-guide.md` 與 `manifest.json`。每張工作表預設最多顯示 120 筆輸入／常數與 120 筆公式，review queue 最多顯示 200 筆；限制只作用於人讀視圖，完整資料仍在 JSON／CSV。Editor-compatible Markdown／sidecar 只有在明確啟用 adapter 時才產生。
+
+核心不會把公式改寫成 Python，也不會讓普通 Markdown 編輯覆蓋公式。Excel 快取值會標記為 `source_cached_values`；`error`、空白、0、未計算與外部引用未解析狀態會分開保存。可讀格式的正式契約請看 [`docs/readable-output-format.md`](docs/readable-output-format.md)。
 
 ## Development tree
 
 ```text
 FMEDA Workbook Text Workspace
 ├── Slice 0：Source 保全與基線
-├── Slice 1：Read-only FMEDA Workspace       ← current
+├── Slice 1：Read-only FMEDA Core Workspace
 │   ├── workbook-v2 JSON
-│   ├── formula_catalog.csv
-│   ├── dependency_edges.csv
+│   ├── formula_catalog.csv／dependency_edges.csv
 │   ├── review_items.json
-│   ├── Reviewer／主管摘要 Markdown
+│   ├── readable/ human-first Markdown layer   ← current
 │   └── optional Editor adapter
-├── Slice 2：Editor 協同與受控修改
-├── Slice 3：全量驗證與衍生回存
+├── Slice 2：受控 input patch 與 derived revision
+├── Slice 3：revision diff／validation
 ├── Slice 4：Profile 泛化到其他 Excel
-└── Slice 5：獨立重算：最後才做
+├── Slice 5：獨立 evaluator：最後才做
+├── Slice 6：真實大型 FMEDA 與 Calc-compatible recalc
+├── Slice 7–8：外部 workbook 與 acceptance gate
+└── Slice 9：完整 thinking-rule catalog／preflight
 ```
 
 完整圖檔請查看 [`docs/fmeda-development-tree.png`](docs/fmeda-development-tree.png)，原始 Mermaid 位於 [`docs/fmeda-development-tree.mmd`](docs/fmeda-development-tree.mmd)。
@@ -66,6 +70,12 @@ out/fmeda-RD-03-008-01/
 │   ├── dependency_edges.csv
 │   ├── review_items.json
 │   └── sheets/*.json
+├── readable/
+│   ├── index.md                  # 人讀入口
+│   ├── review-queue.md           # 待審查摘要
+│   ├── formula-guide.md          # 公式／結果語意
+│   ├── manifest.json             # readable contract metadata
+│   └── sheets/*.md               # 每張工作表 bounded 閱讀頁
 └── reports/import-report.md
 
 # 只有使用 --adapter editor 時才會額外產生：
@@ -78,7 +88,7 @@ out/fmeda-RD-03-008-01/
 python -m pytest -q
 ```
 
-The contract tests cover source immutability, derived copy creation, formula preservation, same-sheet／cross-sheet references, unresolved external references, formula errors, core-only output, and optional Editor provenance metadata.
+The contract tests cover source immutability, derived copy creation, formula preservation, same-sheet／cross-sheet references, unresolved external references, formula errors, core-only output, readable entrypoints, bounded formula samples, Markdown escaping, and optional Editor provenance metadata.
 
 ## Scope and safety
 

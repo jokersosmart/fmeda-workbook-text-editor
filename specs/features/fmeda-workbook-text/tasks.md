@@ -88,3 +88,14 @@
 - [x] 9-6. 實作 `thinking-rules compile` 與 `thinking-rules evaluate` CLI，輸出同一 evaluation object 的 JSON 與 Markdown。
 - [x] 9-7. 建立 45 報告、185 規則、目標缺失、高代價不可逆與完整低風險 context 的契約測試。
 - [ ] 9-8. 由使用者逐項確認各報告中的歧義、量化門檻與跨報告衝突，才可將需要人判斷的候選升級為更嚴格的 deterministic rule。
+
+## Slice 1b — Readable core workspace（Phase 2）
+
+- [x] 1b-1. 建立 `readable/index.md` 與工作表閱讀頁，採摘要優先、逐層深入的資訊架構。
+- [x] 1b-2. 建立 `readable/review-queue.md`、`readable/formula-guide.md` 與 `readable/manifest.json`。
+- [x] 1b-3. 在 readable 頁面保留 `formula_raw`、`cached_value`、`calculation_status`、`formula_id`、source cell 與 source hash 的追溯路徑。
+- [x] 1b-4. 對大型工作表採每表 120 筆公式／120 筆輸入 bounded samples，review queue 採 200 筆 bounded display，完整 normalized artifacts 不截斷。
+- [x] 1b-5. 以 parser signals 產生優先注意工作表與公式函數／外部依賴摘要，明確不宣稱 FMEDA 語意判讀。
+- [x] 1b-6. 讓 Step03 summary、import report 與 CLI 都導向 readable index。
+- [x] 1b-7. 建立 core-only、Editor opt-in、provenance、Markdown escaping、無公式工作表與 bounded output 契約測試。
+- [x] 1b-8. 更新 README、quickstart、core/editor separation、target spec、readable output format 與本 task plan。

@@ -17,10 +17,15 @@ FmedaCoreWorkspaceBuilder
     ├── dependency_edges.csv
     ├── review_items.json
     ├── Step03_summary.md
-    └── import-report.md
+    ├── readable/index.md
+    ├── readable/sheets/*.md
+    ├── readable/review-queue.md
+    ├── readable/formula-guide.md
+    ├── readable/manifest.json
+    └── reports/import-report.md
 ```
 
-The core workflow does not create an `editor/` directory and does not import the Editor adapter during normal CLI startup. It can be used in scripts, CI jobs, batch processing, or environments where the Editor is not installed.
+The core workflow does not create an `editor/` directory and does not import the Editor adapter during normal CLI startup. It does create the independent `readable/` layer, whose index-first Markdown is intended for reviewers, managers, and cross-functional readers. It can be used in scripts, CI jobs, batch processing, or environments where the Editor is not installed.
 
 ```powershell
 fmeda-workspace input.xlsx --output-dir out/core-workspace
@@ -30,6 +35,8 @@ fmeda-workspace input.xlsx --output-dir out/core-workspace
 
 ```text
 core workbook-v2 + provenance
+    ↓
+readable/ (human-first core view)
     ↓
 FmedaEditorAdapter
     ├── editor/index.md
@@ -46,7 +53,7 @@ fmeda-workspace input.xlsx \
   --adapter editor
 ```
 
-The adapter reads the core workbook model and writes Editor-specific files. It does not create a second formula truth. `source_sha256`, `source_cell`, `formula_id`, and source revision metadata remain aligned with the core artifacts.
+The adapter reads the core workbook model and writes Editor-specific files. The readable layer and the adapter both point back to the same normalized artifacts; neither creates a second formula truth. `source_sha256`, `source_cell`, `formula_id`, and source revision metadata remain aligned with the core artifacts.
 
 ## Python API
 
@@ -66,4 +73,4 @@ manifest = FmedaWorkspaceBuilder(source, output, include_editor=True).build()
 
 ## Contract
 
-The core is authoritative for source evidence, formulas, cached values, errors, dependencies, validation, patches, and derived revisions. The adapter is authoritative only for Editor presentation and collaboration metadata. If the adapter is absent, the core remains complete for import, reading, validation, and derived-output workflows.
+The core is authoritative for source evidence, formulas, cached values, errors, dependencies, validation, patches, and derived revisions. `readable/` is a bounded human view: it shows summary, parser-signal priority, and samples, while complete details remain in `normalized/`. The adapter is authoritative only for Editor presentation and collaboration metadata. If the adapter is absent, the core remains complete for import, reading, validation, and derived-output workflows.

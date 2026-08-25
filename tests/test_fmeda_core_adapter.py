@@ -79,6 +79,7 @@ def test_cli_defaults_to_core_and_can_opt_in_to_editor(tmp_path: Path, monkeypat
     )
     assert fmeda_cli_main() == 0
     assert not (core_workspace / "editor").exists()
+    assert (core_workspace / "readable" / "index.md").is_file()
 
     editor_workspace = tmp_path / "cli-editor"
     monkeypatch.setattr(
@@ -94,3 +95,4 @@ def test_cli_defaults_to_core_and_can_opt_in_to_editor(tmp_path: Path, monkeypat
     )
     assert fmeda_cli_main() == 0
     assert (editor_workspace / "editor" / "index.md").is_file()
+    assert (editor_workspace / "readable" / "index.md").is_file()

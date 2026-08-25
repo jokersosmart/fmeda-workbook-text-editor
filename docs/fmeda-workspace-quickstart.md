@@ -2,7 +2,7 @@
 
 ## 目的
 
-`fmeda-workspace` 會把一份 `.xlsx` 轉成 source-safe FMEDA core workspace。原始檔不會被覆蓋；系統會複製來源到 `source/`，建立同內容的衍生工作簿到 `derived/`，並產生 workbook-v2、公式目錄、依賴索引、審查清單與人類可讀 Markdown。Editor workspace 是可選 adapter，不是核心必要依賴。
+`fmeda-workspace` 會把一份 `.xlsx` 轉成 source-safe FMEDA core workspace。原始檔不會被覆蓋；系統會複製來源到 `source/`，建立同內容的衍生工作簿到 `derived/`，並產生 workbook-v2、公式目錄、依賴索引、審查清單與獨立的 `readable/` 人類可讀層。Editor workspace 是可選 adapter，不是核心必要依賴。
 
 ## 執行
 
@@ -34,12 +34,24 @@ out/fmeda-RD-03-008-01/
 │   ├── dependency_edges.csv
 │   ├── review_items.json
 │   └── sheets/*.json
+├── readable/
+│   ├── index.md                  # 人讀入口
+│   ├── review-queue.md           # 待審查摘要
+│   ├── formula-guide.md          # 公式／結果語意
+│   ├── manifest.json             # readable schema 與 provenance
+│   └── sheets/*.md               # 每張工作表 bounded 閱讀頁
 └── reports/
     └── import-report.md
 
 # 只有使用 --adapter editor 時才會額外產生 editor/ 目錄：
 # index.md、sheets/*.md、blocks.sidecar.json、relations.json
 ```
+
+## 先從 readable 入口開始
+
+完成匯入後，先開啟 `readable/index.md`。它會列出來源 hash、計算模式、工作表狀態、待審查佇列、優先注意工作表與完整 JSON／CSV 的回查連結。每張工作表頁面預設只展示前 120 筆輸入／常數與前 120 筆公式；review queue 預設展示前 200 筆。這些是人讀視圖的上限，完整內容仍保留在 `normalized/`，不會因 bounded display 被刪除。
+
+如果需要閱讀欄位語意，可查看 `readable/formula-guide.md`；如果需要完整待審查資料，可查看 `normalized/review_items.json`。
 
 ## 與 Editor 搭配（可選）
 
@@ -57,7 +69,7 @@ fmeda-workspace RD-03-008-01FMEDAReport.xlsx `
 
 ## 目前的計算語意
 
-目前 workspace 使用來源 Excel 保存的 cached values，`calculation_mode` 為 `source_cached_values`。這不等同於本工具重新計算。公式、空白、數值 0、`#DIV/0!`、`#VALUE!` 與未解析外部引用會分別保存並列入審查項目。
+目前 workspace 使用來源 Excel 保存的 cached values，`calculation_mode` 為 `source_cached_values`。這不等同於本工具重新計算。公式、空白、數值 0、`#DIV/0!`、`#VALUE!` 與未解析外部引用會分別保存並列入審查項目。readable 頁面只做分層呈現，不把 cached value 改稱為最新結果，也不把錯誤轉成 0。完整格式契約請看 [`readable-output-format.md`](readable-output-format.md)。
 
 ## 進入下一個 slice 的條件
 
