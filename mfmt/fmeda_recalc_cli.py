@@ -14,12 +14,27 @@ def main() -> int:
     parser.add_argument("source", type=Path, help="Source .xlsx or .xlsm workbook")
     parser.add_argument("output", type=Path, help="Recalculated output workbook")
     parser.add_argument("--timeout", type=int, default=900, help="Timeout in seconds")
+    parser.add_argument(
+        "--external-workbook",
+        action="append",
+        type=Path,
+        default=[],
+        help="A supplied external workbook; repeat for multiple links",
+    )
+    parser.add_argument(
+        "--external-mode",
+        choices=("bind", "materialize"),
+        default="bind",
+        help="Resolve external links directly or copy external sheets into a temporary internal workbook",
+    )
     parser.add_argument("--report", type=Path, help="Optional JSON recalculation report")
     args = parser.parse_args()
     report = LibreOfficeRecalculator(
         args.source,
         args.output,
         timeout_seconds=args.timeout,
+        external_workbooks=args.external_workbook,
+        external_mode=args.external_mode,
     ).run()
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)

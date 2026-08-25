@@ -151,3 +151,18 @@
 7. 真實工作簿、重算檔與大型 JSONL chunks 不得進入版本控制；repository 只保存程式、契約、文件與去識別化的執行摘要。
 
 **Observed integration result**：27/27 worksheets completed；公式語意 blocking changes 為 0；浮點／非公式誤報在容差後為 0；剩餘 10 個 metadata／error-state blocking changes 與 2,774 個 cached-value warnings，已記錄於 `docs/real-fmeda-integration-report.md`。
+
+
+### US-011：外部工作簿 mapping 與可驗證重算（P1，external-link slice）
+
+作為 FMEDA 工程師，我可以提供公式所引用的外部工作簿，系統在暫存複本中解析並 materialize 外部 link mapping，再交給 Calc 重算；若外部工作簿不存在或 mapping 不明確，系統必須保持阻擋狀態，不得用模擬值冒充真實結果。
+
+**Acceptance Criteria**：
+
+1. 系統可從 XLSX relationship 讀出原始 external target、external link index 與 sheet name。
+2. 使用者提供的 external workbook 必須依檔名或明確 link index 對應；找不到或多重候選時不得猜測。
+3. 綁定只發生在暫存複本；原始 FMEDA 與使用者提供的外部工作簿都不可被寫回。
+4. 重算報告必須保存原始 target、實際 resolved path、external workbook SHA-256、mapping status 與 materialization status。
+5. synthetic fixture 只能驗證流程能否解開外部公式，不得被標記為真實 FMEDA 結論。
+6. 真實外部工作簿尚未提供時，`unresolved`／`refresh_error` 必須維持 `blocked`，不能把 `#VALUE!` 自動變成可信的 0。
+7. 若外部工作簿成功載入，`T2`、`T3`、`W2`、`W3` 的 cached result 仍需經 validator 與工程師抽樣確認後，才可解除 blocking。

@@ -10,6 +10,13 @@ import time
 import zipfile
 from pathlib import Path
 from typing import Any
+
+from .fmeda_external import (
+    ExternalLinkResolutionError,
+    bind_external_links,
+    materialize_external_workbooks,
+    resolve_external_links,
+)
 from xml.etree import ElementTree as ET
 
 try:
@@ -78,11 +85,19 @@ class LibreOfficeRecalculator:
         *,
         soffice: str = "soffice",
         timeout_seconds: int = 900,
+        external_workbooks: list[str | Path] | None = None,
+        external_mode: str = "bind",
     ):
         self.source = Path(source).expanduser().resolve()
         self.output = Path(output).expanduser().resolve()
         self.soffice = soffice
         self.timeout_seconds = timeout_seconds
+        self.external_workbooks = [
+            Path(value).expanduser().resolve() for value in (external_workbooks or [])
+        ]
+        if external_mode not in {"bind", "materialize"}:
+            raise ValueError("external_mode must be 'bind' or 'materialize'")
+        self.external_mode = external_mode
         if not self.source.is_file():
             raise FileNotFoundError(f"source workbook not found: {self.source}")
         if self.source.suffix.lower() not in {".xlsx", ".xlsm"}:
@@ -99,6 +114,42 @@ class LibreOfficeRecalculator:
             converted_dir = temp_root / "converted"
             converted_dir.mkdir()
             shutil.copy2(self.source, input_copy)
+            external_report: dict[str, Any] = {"status": "NOT_REQUESTED", "links": []}
+            if self.external_workbooks:
+                try:
+                    if self.external_mode == "bind":
+                        external_report = bind_external_links(
+                            input_copy,
+                            input_copy.with_name(f"{input_copy.stem}.bound{input_copy.suffix}"),
+                            self.external_workbooks,
+                        )
+                        bound_copy = input_copy.with_name(f"{input_copy.stem}.bound{input_copy.suffix}")
+                    else:
+                        external_report = materialize_external_workbooks(
+                            input_copy,
+                            input_copy.with_name(f"{input_copy.stem}.materialized{input_copy.suffix}"),
+                            self.external_workbooks,
+                        )
+                        bound_copy = input_copy.with_name(
+                            f"{input_copy.stem}.materialized{input_copy.suffix}"
+                        )
+                    input_copy = bound_copy
+                except ExternalLinkResolutionError:
+                    raise
+            elif self.source.suffix.lower() in {".xlsx", ".xlsm"}:
+                external_report = {
+                    "status": "UNRESOLVED_NOT_SUPPLIED",
+                    "links": [
+                        {
+                            "status": item.status,
+                            "index": item.index,
+                            "original_target": item.original_target,
+                            "sheet_names": list(item.sheet_names),
+                            "reason": item.reason,
+                        }
+                        for item in resolve_external_links(self.source, [])
+                    ],
+                }
             command = [
                 self.soffice,
                 "--headless",
@@ -148,5 +199,6 @@ class LibreOfficeRecalculator:
             "output_sha256": _sha256(self.output),
             "formula_count": formula_count,
             "cached_result_count": cached_result_count,
+            "external_resolution": external_report,
             "duration_seconds": round(time.monotonic() - started, 3),
         }

@@ -155,3 +155,26 @@ fmeda-validate-large RD-03-008-01FMEDAReport.xlsx `
 The observed baseline was 27 worksheets, 597,485 formulas, 316 merged ranges, 10 defined names, and a largest worksheet XML entry of approximately 177 MB after decompression. The completed run validated 27/27 worksheets and reported all observed merged ranges as preserved. A `FAIL` status means the validator found blocking differences that still require engineering review; it is not silently converted to PASS.
 
 See `docs/real-fmeda-integration-report.md` for the observed result and remaining acceptance work. The real workbook and generated validation chunks are intentionally excluded from version control.
+
+## External workbook loading and materialization
+
+Some FMEDA formulas use references such as `[1]BlockList!`. The recalculator can now accept supplied external workbooks by exact basename mapping and record the resolved file hash. `bind` keeps the external relationship pointing at the supplied file for Excel-compatible workflows. `materialize` copies the referenced external worksheet into a temporary internal sheet such as `EXT_BlockList` and rewrites only the temporary calculation copy, which is the recommended mode when Calc cannot evaluate the original `[1]` link-index syntax.
+
+```powershell
+fmeda-recalculate `
+  RD-03-008-01FMEDAReport.xlsx `
+  out/RD-03-008-01FMEDAReport.with-external.xlsx `
+  --external-workbook C:/path/SM2734_HWS_SA_FMEDA_0.2chk.xlsx `
+  --external-mode materialize `
+  --report out/external-recalculation.json
+```
+
+The source FMEDA and supplied external workbook are never written. If the exact external basename cannot be resolved, the command fails closed instead of guessing. The report records `resolved_path`, external SHA-256, source SHA-256, materialized sheet name, and the fact that formula rewrites were limited to the temporary copy.
+
+A reproducible synthetic demonstration is available at:
+
+```powershell
+python examples/run_external_link_demo.py
+```
+
+It starts four cells with `#VALUE!`, loads a clearly synthetic `SM2734_HWS_SA_FMEDA_0.2chk.xlsx`, materializes `BlockList` as `EXT_BlockList`, and recalculates `T2`, `W2`, `T3`, and `W3` to numeric values. The demonstration validates the mechanism only; its values are not the real FMEDA result. The real external workbook must still be supplied and reviewed before the four production cells can be accepted.

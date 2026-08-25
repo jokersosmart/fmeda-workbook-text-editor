@@ -55,3 +55,12 @@
 - [ ] 6-6. 以真實 FMEDA 的全部公式函數建立獨立 evaluator allowlist 與結果 tolerance。
 - [x] 6-7a. 完成真實 16 MB 工作簿的 Calc 重算、27/27 worksheet validation 與可恢復 checkpoint。
 - [ ] 6-7b. 完成 cached-value warnings、error-state changes 與 metadata changes 的工程師人工抽樣審查。
+
+
+## Slice 7 — 外部工作簿載入與重算解錯
+
+- [x] 7-1. 讀取標準 `externalReference`／`externalLink` relationship，依 exact basename 建立 resolved／unresolved mapping。
+- [x] 7-2. 在暫存複本中保留 direct bind 模式，並建立 `EXT_<Sheet>` internal-sheet materialization 模式。
+- [x] 7-3. 將 external workbook path、SHA-256、materialized sheet、公式改寫範圍寫入 recalculation report。
+- [x] 7-4. 以 synthetic external BlockList 對真實 FMEDA 執行 Calc materialization，確認 T2、W2、T3、W3 與 X2、X3 可產生數值。
+- [ ] 7-5. 取得真正的 `SM2734_HWS_SA_FMEDA_0.2chk.xlsx`，以實際 BlockList 值重跑並完成 FMEDA 工程師人工審查。
