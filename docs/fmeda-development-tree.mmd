@@ -1,0 +1,69 @@
+%% FMEDA Workbook Text Workspace — implementation tree
+flowchart TD
+    ROOT[FMEDA Workbook Text Workspace]
+
+    ROOT --> S0[Slice 0\nSource 保全與基線]
+    ROOT --> S1[Slice 1\nRead-only FMEDA Workspace]
+    ROOT --> S2[Slice 2\nEditor 協同與受控修改]
+    ROOT --> S3[Slice 3\n全量驗證與衍生回存]
+    ROOT --> S4[Slice 4\nProfile 泛化到其他 Excel]
+    ROOT --> S5[Slice 5\n獨立重算：最後才做]
+
+    S0 --> S0A[原始 XLSX snapshot]
+    S0 --> S0B[SHA-256 與 source manifest]
+    S0 --> S0C[derived XLSX copy]
+    S0 --> S0D[既有測試基線恢復]
+
+    S1 --> S1A[共通 Excel extractor]
+    S1 --> S1B[workbook-v2 JSON]
+    S1 --> S1C[formula_catalog]
+    S1 --> S1D[dependency_edges]
+    S1 --> S1E[review_items]
+    S1 --> S1F[Reviewer／主管摘要 Markdown]
+    S1 --> S1G[Editor Markdown + sidecar]
+
+    S1B --> M1[Input／Constant／Formula\nCached Result／Error／External Reference]
+    S1C --> M2[formula_raw\nformula_id\nfunction_names\nstatus]
+    S1D --> M3[same-sheet／cross-sheet／external\nrange-level edges]
+
+    S2 --> S2A[Block source_cell 映射]
+    S2 --> S2B[formula_id 與 provenance]
+    S2 --> S2C[Review notes／mapping decision]
+    S2 --> S2D[Input 欄位可編輯]
+    S2 --> S2E[Formula／Result 預設唯讀]
+    S2 --> S2F[patch + conflict detection]
+
+    S3 --> S3A[sheet／cell set diff]
+    S3 --> S3B[formula 原文 diff]
+    S3 --> S3C[cached value／error diff]
+    S3 --> S3D[metadata diff]
+    S3 --> S3E[derived rev-N.xlsx]
+    S3 --> S3F[export／validation report]
+
+    S4 --> S4A[共通 profile contract]
+    S4 --> S4B[FMEDA profile detection]
+    S4 --> S4C[個案 mapping YAML]
+    S4 --> S4D[matched]
+    S4 --> S4E[needs_mapping]
+    S4 --> S4F[unsupported]
+
+    S5 --> S5A[盤點實際函數]
+    S5 --> S5B[evaluator contract]
+    S5 --> S5C[Excel baseline 比對]
+    S5 --> S5D[錯誤語意與容許誤差]
+
+    S0 --> G1{Gate 0\nSource 不可變}
+    S1 --> G2{Gate 1\n公式／狀態可追溯}
+    S2 --> G3{Gate 2\nEditor 不覆蓋真相}
+    S3 --> G4{Gate 3\n全量 diff 通過}
+    S4 --> G5{Gate 4\n跨檔案可複用}
+    S5 --> G6{Gate 5\n重算結果可解釋}
+
+    G1 --> G2 --> G3 --> G4 --> G5 --> G6
+
+    classDef slice fill:#e8f1ff,stroke:#235789,stroke-width:1px,color:#111;
+    classDef model fill:#fff4d6,stroke:#9b6a00,stroke-width:1px,color:#111;
+    classDef gate fill:#e8f7ec,stroke:#26734d,stroke-width:1px,color:#111;
+    class S0,S1,S2,S3,S4,S5 slice;
+    class M1,M2,M3 model;
+    class G1,G2,G3,G4,G5,G6 gate;

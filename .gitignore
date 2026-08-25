@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.xlsx
+*.xlsm
+fmeda_workspace/
+out/
+*.log
+.DS_Store
+Thumbs.db
