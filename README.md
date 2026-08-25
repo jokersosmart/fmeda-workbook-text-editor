@@ -215,3 +215,14 @@ thinking-rules evaluate `
 ```
 
 The engine deliberately has three execution levels: `deterministic_check`, `human_review`, and `assistive_prompt`. Subjective, ambiguous, or value-laden habits remain review-required or prompt-only. The engine is a decision aid and does not replace domain review or the user's final judgment.
+
+
+The one-to-one habit catalog is `resources/thinking/habit_program_catalog.json`. It contains one program-rule candidate for each of the 235 habit-definition lines across all 45 reports. Compile it separately when the goal is complete habit coverage:
+
+```powershell
+thinking-rules compile `
+  --catalog resources/thinking/habit_program_catalog.json `
+  --output resources/thinking/compiled_habit_program_rules.json
+```
+
+The original 185-candidate catalog is retained because report-level candidates and habit-level candidates answer different questions. The former preserves the report's explicit candidate rules; the latter guarantees that no habit definition is silently omitted. Every habit-level rule remains `candidate` and `disabled_until_owner_confirmation` until the owner confirms its operational meaning.

@@ -113,9 +113,16 @@ class ThinkingRuleCatalog:
     def from_json(cls, path: str | Path) -> "ThinkingRuleCatalog":
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
         rules: list[ThinkingRule] = []
+        habit_catalog = payload.get("catalog_kind") == "one_program_rule_candidate_per_habit_definition"
         for group in payload.get("rules", []):
             ambiguity = str(group.get("ambiguities_and_conflicts", ""))
-            candidates = list(group.get("program_rule_candidates", []))
+            if habit_catalog and group.get("habit_program_rules"):
+                candidates = [
+                    str(item.get("rule_candidate", "未明示"))
+                    for item in group["habit_program_rules"]
+                ]
+            else:
+                candidates = list(group.get("program_rule_candidates", []))
             if not candidates:
                 candidates = [
                     f"未萃取到明確候選；以核心問題作為 assistive prompt：{group.get('core_question', '未明示')}"

@@ -70,3 +70,15 @@ def test_high_cost_irreversible_context_is_blocked() -> None:
     assert evaluation["overall_status"] == DecisionStatus.BLOCKED.value
     assert evaluation["counts"][DecisionStatus.BLOCKED.value] > 0
     assert any("不可逆" in reason for item in evaluation["outcomes"] for reason in item["reasons"])
+
+
+def test_complete_habit_catalog_compiles_one_rule_per_habit_definition() -> None:
+    habit_catalog = ROOT / "resources" / "thinking" / "habit_program_catalog.json"
+    catalog = ThinkingRuleCatalog.from_json(habit_catalog)
+    completeness = catalog.validate_completeness()
+
+    assert completeness["complete"] is True
+    assert completeness["processed_reports"] == 45
+    assert completeness["compiled_rules"] == 235
+    assert all(rule.rule_id.startswith("TH-") for rule in catalog.rules)
+    assert all(rule.human_confirmation_required is True for rule in catalog.rules)
