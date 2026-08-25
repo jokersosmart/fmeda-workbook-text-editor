@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
 
 from openpyxl import Workbook, load_workbook
 
+from mfmt.spreadsheet.fmeda_diff import FmedaRevisionValidator
 from mfmt.spreadsheet.fmeda_patch import FmedaPatchApplier
 from mfmt.spreadsheet.fmeda_workspace import FmedaWorkspaceBuilder
 DEMO_ROOT = ROOT / "demo-output"
@@ -81,6 +82,13 @@ def main() -> None:
     result = FmedaPatchApplier(workspace).apply(patch)
 
     revision = workspace / result["derived_file"]
+    validation_report = FmedaRevisionValidator(
+        workspace / manifest["derived_file"], revision, result
+    ).write_report(workspace / "reports" / "validation.rev-002.md")
+    (workspace / "reports" / "validation.rev-002.json").write_text(
+        json.dumps(validation_report, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     workbook = load_workbook(revision, data_only=False)
     sheet = workbook["FMEDA"]
     input_after = sheet["B1"].value
@@ -106,13 +114,15 @@ def main() -> None:
                 f"| Formula preserved | `{formula_after}` |",
                 f"| Derived revision | `{result['derived_file']}` |",
                 f"| Review notes | `{result['review_note_count']}` |",
+                f"| Revision validation | `{validation_report['status']}` |",
                 "",
                 "## 可查看檔案",
                 "",
                 "- `source/RD-03-008-01FMEDAReport.xlsx`：原始檔，hash 不變。",
                 f"- `{result['derived_file']}`：新衍生檔，僅包含受控 input patch。",
                 "- `editor/sheets/01_FMEDA.md`：Editor 可讀審查頁。",
-                "- `reports/export-report.rev-002.md`：差異報告。",
+                "- `reports/export-report.rev-002.md`：derived export 差異報告。",
+                "- `reports/validation.rev-002.md`：全量 revision validation report。",
                 "- `editor/review_notes.json`：審查註記。",
                 "",
                 "公式 cell `FMEDA!D1` 在 Slice 2 中被拒絕修改；Excel workbook.xml 會標記下次開啟時自動重新計算。",

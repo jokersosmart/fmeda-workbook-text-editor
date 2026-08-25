@@ -98,3 +98,16 @@
 5. 成功 patch 必須寫入新的 `derived/*.rev-N.xlsx`，不得覆蓋 source snapshot 或前一個 derived revision。
 6. patch manifest 必須保存來源 hash、base derived hash、new derived hash、變更儲存格與 review note 數量。
 7. derived workbook 必須標記 Excel 下次開啟時重新計算；本工具不得宣稱已完成獨立公式重算。
+
+### US-007：驗證 derived revision 的可追溯差異（P1，Slice 3）
+
+作為審查者，我可以比較兩個 derived workbook revision，知道 input 變更是否符合已提交的 patch，並在公式、錯誤狀態、非預期值或來源 hash 異常時阻止接受該 revision。
+
+**Acceptance Criteria**：
+
+1. validator 必須逐格比較公式原文、raw value、cached value、error state 與 cell presence。
+2. 只有 patch manifest 中明確列出的 input 變更可以標記為 `allowed_input`。
+3. 公式原文、錯誤狀態、非預期值、工作表存在／順序或 provenance hash 差異必須標記為 blocking。
+4. 公式 cached value 差異可以標記為 warning，因為本 slice 不宣稱完成獨立重算。
+5. `fmeda-validate` 必須輸出 Markdown report，並以 `PASS`、`PASS_WITH_WARNINGS` 或 `FAIL` 結束。
+6. `FAIL` 時 CLI 必須以非零狀態結束，避免未經審查的 revision 被自動接受。

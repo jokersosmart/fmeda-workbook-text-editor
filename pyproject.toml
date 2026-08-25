@@ -19,6 +19,7 @@ dev = ["pytest>=8.0"]
 [project.scripts]
 fmeda-workspace = "mfmt.fmeda_cli:main"
 fmeda-patch = "mfmt.fmeda_patch_cli:main"
+fmeda-validate = "mfmt.fmeda_validate_cli:main"
 
 [tool.setuptools.packages.find]
 include = ["mfmt*"]

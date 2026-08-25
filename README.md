@@ -97,3 +97,18 @@ fmeda-patch out/fmeda-RD-03-008-01 normalized/patch.json
 ```
 
 The patcher marks the derived workbook for recalculation on next Excel open with `calcMode=auto`, `fullCalcOnLoad=1`, and `forceFullCalc=1`. It does not claim to independently calculate cached formula results.
+
+## Slice 3 demo: revision validation
+
+Slice 3 compares a base revision and a target revision cell by cell. A declared input patch is reported as `allowed_input`; formula changes, error-state changes, unexpected values, unexpected cell presence, sheet changes, or provenance hash mismatches are blocking failures. Formula cached-value differences are warnings because this slice does not independently recalculate Excel formulas.
+
+```powershell
+fmeda-validate `
+  demo-output/workspace/derived/RD-03-008-01FMEDAReport.rev-001.xlsx `
+  demo-output/workspace/derived/RD-03-008-01FMEDAReport.rev-002.xlsx `
+  --patch-manifest demo-output/workspace/normalized/patch_manifest.rev-002.json `
+  --output demo-output/workspace/reports/validation.rev-002.md `
+  --json-output demo-output/workspace/reports/validation.rev-002.json
+```
+
+A `PASS` report means all observed changes were explicitly allowed and provenance hashes matched. `PASS_WITH_WARNINGS` means only formula cached-value changes were observed. `FAIL` means a human must review the revision before it can be accepted.

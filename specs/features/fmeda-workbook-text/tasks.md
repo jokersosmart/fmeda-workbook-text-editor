@@ -26,10 +26,10 @@
 
 ## Slice 3 — 全量驗證與回存
 
-- [ ] 3-1. 建立全量 sheet／cell／formula／value／error／metadata diff。
-- [ ] 3-2. 建立 `mfmt spreadsheet validate-fmeda` CLI。
+- [x] 3-1. 建立全量 sheet／cell／formula／value／error／provenance diff。
+- [x] 3-2. 建立 `fmeda-validate` CLI。
 - [ ] 3-3. 擴充 merged cells、defined names、number formats、data validations 的驗證。
-- [ ] 3-4. 建立 derived export report 與可回復 revision。
+- [x] 3-4. 建立 derived export report 與可回復 revision。
 
 ## Slice 4 — Profile 泛化
 
