@@ -178,3 +178,19 @@ python examples/run_external_link_demo.py
 ```
 
 It starts four cells with `#VALUE!`, loads a clearly synthetic `SM2734_HWS_SA_FMEDA_0.2chk.xlsx`, materializes `BlockList` as `EXT_BlockList`, and recalculates `T2`, `W2`, `T3`, and `W3` to numeric values. The demonstration validates the mechanism only; its values are not the real FMEDA result. The real external workbook must still be supplied and reviewed before the four production cells can be accepted.
+
+
+## External recalculation acceptance profile
+
+A numeric result after external materialization is not automatically accepted. `FmedaAcceptanceProfile` classifies each target cell as `accepted`, `review_required`, or `blocked`. Synthetic fixtures remain `review_required`; unresolved links, missing hashes, remaining errors, formula changes, and incomplete provenance are `blocked`. A production result becomes `accepted` only when the external workbook hash is recorded and a reviewer decision manifest contains both an identified reviewer and a rationale.
+
+```powershell
+fmeda-acceptance `
+  RD-03-008-01FMEDAReport.xlsx `
+  out/RD-03-008-01FMEDAReport.with-external.xlsx `
+  --recalc-report out/external-recalculation.json `
+  --output out/external-acceptance.md `
+  --json-output out/external-acceptance.json
+```
+
+The same gate can be attached to the ordinary revision validator with `--recalc-report`. The Markdown report contains a manager summary, a reviewer table, engineer-level formula evidence, and provenance. All views use the same underlying decision; they only change the amount of explanation.

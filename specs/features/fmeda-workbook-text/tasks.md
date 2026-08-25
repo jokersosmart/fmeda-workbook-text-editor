@@ -64,3 +64,13 @@
 - [x] 7-3. 將 external workbook path、SHA-256、materialized sheet、公式改寫範圍寫入 recalculation report。
 - [x] 7-4. 以 synthetic external BlockList 對真實 FMEDA 執行 Calc materialization，確認 T2、W2、T3、W3 與 X2、X3 可產生數值。
 - [ ] 7-5. 取得真正的 `SM2734_HWS_SA_FMEDA_0.2chk.xlsx`，以實際 BlockList 值重跑並完成 FMEDA 工程師人工審查。
+
+
+## Slice 8 — External recalculation acceptance profile
+
+- [x] 8-1. 定義 `accepted`、`review_required`、`blocked` 三段式 gate 與 evidence contract。
+- [x] 8-2. 實作 `FmedaAcceptanceProfile`，接續 recalc report、external hash、formula equivalence 與 reviewer decision manifest。
+- [x] 8-3. 加入 `fmeda-acceptance` CLI，並可由 `fmeda-validate --recalc-report` 觸發同一份 acceptance gate。
+- [x] 8-4. 產生 manager、reviewer、engineer 三層視圖；視圖不得改變判定結果。
+- [x] 8-5. 以真實 16 MB FMEDA + synthetic external fixture 驗證：6 個目標結果為 `review_required`，不自動 accepted。
+- [ ] 8-6. 取得真正 external workbook 後，以 production source kind 重跑並完成 FMEDA 工程師 decision manifest。

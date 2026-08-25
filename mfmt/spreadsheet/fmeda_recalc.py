@@ -87,6 +87,7 @@ class LibreOfficeRecalculator:
         timeout_seconds: int = 900,
         external_workbooks: list[str | Path] | None = None,
         external_mode: str = "bind",
+        external_source_kind: str = "unclassified",
     ):
         self.source = Path(source).expanduser().resolve()
         self.output = Path(output).expanduser().resolve()
@@ -97,7 +98,12 @@ class LibreOfficeRecalculator:
         ]
         if external_mode not in {"bind", "materialize"}:
             raise ValueError("external_mode must be 'bind' or 'materialize'")
+        if external_source_kind not in {"unclassified", "synthetic-fixture", "production"}:
+            raise ValueError(
+                "external_source_kind must be 'unclassified', 'synthetic-fixture', or 'production'"
+            )
         self.external_mode = external_mode
+        self.external_source_kind = external_source_kind
         if not self.source.is_file():
             raise FileNotFoundError(f"source workbook not found: {self.source}")
         if self.source.suffix.lower() not in {".xlsx", ".xlsm"}:
@@ -134,11 +140,13 @@ class LibreOfficeRecalculator:
                             f"{input_copy.stem}.materialized{input_copy.suffix}"
                         )
                     input_copy = bound_copy
+                    external_report["source_kind"] = self.external_source_kind
                 except ExternalLinkResolutionError:
                     raise
             elif self.source.suffix.lower() in {".xlsx", ".xlsm"}:
                 external_report = {
                     "status": "UNRESOLVED_NOT_SUPPLIED",
+                    "source_kind": self.external_source_kind,
                     "links": [
                         {
                             "status": item.status,

@@ -165,6 +165,7 @@ def main() -> int:
         timeout_seconds=120,
         external_workbooks=[external],
         external_mode="materialize",
+        external_source_kind="synthetic-fixture",
     ).run()
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 

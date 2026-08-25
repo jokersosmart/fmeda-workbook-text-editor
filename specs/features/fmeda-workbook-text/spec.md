@@ -166,3 +166,17 @@
 5. synthetic fixture 只能驗證流程能否解開外部公式，不得被標記為真實 FMEDA 結論。
 6. 真實外部工作簿尚未提供時，`unresolved`／`refresh_error` 必須維持 `blocked`，不能把 `#VALUE!` 自動變成可信的 0。
 7. 若外部工作簿成功載入，`T2`、`T3`、`W2`、`W3` 的 cached result 仍需經 validator 與工程師抽樣確認後，才可解除 blocking。
+
+
+### US-012：外部重算結果的接受性審查（P1，acceptance-profile slice）
+
+作為 FMEDA 審查者，我可以看到外部工作簿重算後的每個結果被判定為 `accepted`、`review_required` 或 `blocked`，而且每個判定都能回查到外部工作簿 hash、原始錯誤、重算結果、公式、來源儲存格與審查決策。
+
+**Acceptance Criteria**：
+
+1. `unresolved`、`refresh_error`、external workbook hash 缺失、materialization 不完整、公式變更、結果仍為錯誤或無法追溯者一律為 `blocked`。
+2. external workbook 已解析且結果由 synthetic fixture 或 Calc materialization 產生，但尚未有人工作證者為 `review_required`，不得自動升級為 `accepted`。
+3. 只有在真實 external workbook hash 已記錄、目標結果已通過公式／資料／來源三層檢查，且由指定 FMEDA 審查者留下 decision manifest 後，才可為 `accepted`。
+4. `T2`、`T3` 等外部 SUMIF 根節點與 `W2`、`W3`、`X2`、`X3` 等下游節點必須分別列出，不可只保留總數。
+5. acceptance profile 必須同時產生工程師詳情、審查者摘要與主管摘要；三種視圖只能改變說明深度，不得改變判定結果。
+6. validation CLI 必須在有任何 `blocked` 時以非零狀態結束；只有全數 `accepted` 或明確允許的 `review_required` 才能進入後續人工流程。

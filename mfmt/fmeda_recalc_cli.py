@@ -27,6 +27,12 @@ def main() -> int:
         default="bind",
         help="Resolve external links directly or copy external sheets into a temporary internal workbook",
     )
+    parser.add_argument(
+        "--external-source-kind",
+        choices=("unclassified", "synthetic-fixture", "production"),
+        default="unclassified",
+        help="Evidence class for supplied external workbooks",
+    )
     parser.add_argument("--report", type=Path, help="Optional JSON recalculation report")
     args = parser.parse_args()
     report = LibreOfficeRecalculator(
@@ -35,6 +41,7 @@ def main() -> int:
         timeout_seconds=args.timeout,
         external_workbooks=args.external_workbook,
         external_mode=args.external_mode,
+        external_source_kind=args.external_source_kind,
     ).run()
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)
