@@ -84,3 +84,17 @@
 ## 5. 後續不在本 slice 內的能力
 
 獨立公式重算器、完整資料驗證／命名範圍回存、所有 Excel metadata 的像素級保真、多人同時編輯、外部工作簿自動搜尋，以及自動決定 FMEDA 語意 mapping 均延後到後續 slices。
+
+### US-006：受控修改與衍生 revision（P1，Slice 2）
+
+作為審查者，我可以對明確宣告為 input 的儲存格提交 patch，加入 review note，並在來源版本與原始值檢查通過後產生新的 derived Excel revision；公式欄位仍不可修改。
+
+**Acceptance Criteria**：
+
+1. patch 必須使用 `fmeda-patch-v1`，並帶有 workspace 相同的 `base_source_sha256`。
+2. 每一筆工作簿變更必須明確宣告 `editability=input`。
+3. 公式儲存格修改必須被拒絕，且不得產生新的 revision。
+4. 若 `expected_old_value` 與目前 derived workbook 不一致，必須回報 conflict 且不得產生新的 revision。
+5. 成功 patch 必須寫入新的 `derived/*.rev-N.xlsx`，不得覆蓋 source snapshot 或前一個 derived revision。
+6. patch manifest 必須保存來源 hash、base derived hash、new derived hash、變更儲存格與 review note 數量。
+7. derived workbook 必須標記 Excel 下次開啟時重新計算；本工具不得宣稱已完成獨立公式重算。

@@ -79,3 +79,21 @@ The contract tests cover source immutability, derived copy creation, formula pre
 This repository deliberately does not include the user's original FMEDA workbook. The source file should be supplied locally when running the command. The focused repository also does not include unrelated uncommitted files from the original project.
 
 The next implementation slice should add explicit input patch permissions, review notes, source revision conflict detection and derived `rev-N` export. Independent formula recalculation remains deferred until a real FMEDA corpus establishes the required function set and acceptable comparison rules.
+
+## Slice 2 demo: controlled input patch
+
+Slice 2 adds `FmedaPatchApplier`. A patch must declare `schema_version=fmeda-patch-v1`, match the workspace source SHA-256, declare every workbook change as `editability=input`, and may include an `expected_old_value`. Formula cells are rejected. Successful changes are written to a new derived revision and never to the source snapshot.
+
+```powershell
+python examples/run_demo.py
+```
+
+The demo creates a small three-sheet FMEDA workbook, changes `FMEDA!B1` from `0.001` to `0.002`, preserves formula `FMEDA!D1 = B1*2`, adds one reviewer note, and writes `derived/RD-03-008-01FMEDAReport.rev-002.xlsx`. It also produces `DEMO_RESULT.md`, `editor/sheets/01_FMEDA.md`, `reports/export-report.rev-002.md`, and `editor/review_notes.json` under the ignored `demo-output/` directory.
+
+For a workspace created by `fmeda-workspace`, apply an explicit patch with:
+
+```powershell
+fmeda-patch out/fmeda-RD-03-008-01 normalized/patch.json
+```
+
+The patcher marks the derived workbook for recalculation on next Excel open with `calcMode=auto`, `fullCalcOnLoad=1`, and `forceFullCalc=1`. It does not claim to independently calculate cached formula results.

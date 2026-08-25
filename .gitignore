@@ -6,6 +6,7 @@ __pycache__/
 *.xlsm
 fmeda_workspace/
 out/
+demo-output/
 *.log
 .DS_Store
 Thumbs.db

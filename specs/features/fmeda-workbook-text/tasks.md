@@ -18,11 +18,11 @@
 
 ## Slice 2 — Editor 協同與受控修改
 
-- [ ] 2-1. 在 Block sidecar 中建立 `source_cell`、`formula_id`、`source_revision` 與 `editability`。
-- [ ] 2-2. 允許只修改明確列入 input mapping 的儲存格。
-- [ ] 2-3. 建立 patch manifest 與 conflict detection。
-- [ ] 2-4. 將 review notes、mapping decision 與 unresolved items 寫入 review sidecar。
-- [ ] 2-5. 編輯成功後建立下一版 derived XLSX，不覆蓋原始來源。
+- [x] 2-1. 在 Block sidecar 中建立 `source_cell`、`formula_id`、`source_revision` 與 `editability`。
+- [x] 2-2. 允許只修改明確宣告 `editability=input` 的儲存格。
+- [x] 2-3. 建立 patch manifest、expected-value check 與 source revision conflict detection。
+- [x] 2-4. 將 review notes 寫入 Editor review sidecar。
+- [x] 2-5. 編輯成功後建立下一版 derived XLSX，不覆蓋原始來源。
 
 ## Slice 3 — 全量驗證與回存
 
