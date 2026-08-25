@@ -23,6 +23,7 @@ fmeda-patch = "mfmt.fmeda_patch_cli:main"
 fmeda-validate = "mfmt.fmeda_validate_cli:main"
 fmeda-validate-large = "mfmt.fmeda_large_cli:main"
 fmeda-recalculate = "mfmt.fmeda_recalc_cli:main"
+fmeda-acceptance = "mfmt.fmeda_acceptance_cli:main"
 
 [tool.setuptools.packages.find]
 include = ["mfmt*"]
