@@ -74,3 +74,15 @@
 - [x] 8-4. 產生 manager、reviewer、engineer 三層視圖；視圖不得改變判定結果。
 - [x] 8-5. 以真實 16 MB FMEDA + synthetic external fixture 驗證：6 個目標結果為 `review_required`，不自動 accepted。
 - [ ] 8-6. 取得真正 external workbook 後，以 production source kind 重跑並完成 FMEDA 工程師 decision manifest。
+
+
+## Slice 9 — Complete thinking-rule catalog and preflight
+
+- [x] 9-1. 逐份讀完 ZIP 中 45 份編號決策報告，建立來源與報告編號對照。
+- [x] 9-2. 建立完整閱讀 checklist，保存核心問題、習慣定義、判斷順序、觸發、證據、不確定性、停損與輸出欄位。
+- [x] 9-3. 正規化 235 條習慣定義行與 185 條程式規則候選行，保留零讀取錯誤與跨報告歧義。
+- [x] 9-4. 建立 `joker-thinking-program-rules-v1` compiled catalog，逐條保留 source_file、source_text 與 execution level。
+- [x] 9-5. 實作 `deterministic_check`、`human_review`、`assistive_prompt` 三種執行邊界；主觀或歧義內容不得自動升級。
+- [x] 9-6. 實作 `thinking-rules compile` 與 `thinking-rules evaluate` CLI，輸出同一 evaluation object 的 JSON 與 Markdown。
+- [x] 9-7. 建立 45 報告、185 規則、目標缺失、高代價不可逆與完整低風險 context 的契約測試。
+- [ ] 9-8. 由使用者逐項確認各報告中的歧義、量化門檻與跨報告衝突，才可將需要人判斷的候選升級為更嚴格的 deterministic rule。

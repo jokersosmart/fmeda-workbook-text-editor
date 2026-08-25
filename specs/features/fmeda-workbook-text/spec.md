@@ -180,3 +180,19 @@
 4. `T2`、`T3` 等外部 SUMIF 根節點與 `W2`、`W3`、`X2`、`X3` 等下游節點必須分別列出，不可只保留總數。
 5. acceptance profile 必須同時產生工程師詳情、審查者摘要與主管摘要；三種視圖只能改變說明深度，不得改變判定結果。
 6. validation CLI 必須在有任何 `blocked` 時以非零狀態結束；只有全數 `accepted` 或明確允許的 `review_required` 才能進入後續人工流程。
+
+
+### US-013：完整思考習慣 rule catalog 與 preflight（P1，thinking-rule slice）
+
+作為專案維護者，我可以使用完整思考決策資料庫，而不是只選取少數代表性報告；系統必須逐份保存 45 份報告的來源、核心問題、習慣定義、判斷順序、觸發條件、證據與不確定性、停損條件、輸出、歧義與程式規則候選。
+
+**Acceptance Criteria**：
+
+1. 45 份編號報告必須逐份讀取且可由 checklist 勾稽；任何讀取失敗不得被靜默忽略。
+2. 每份報告必須保留來源檔名與報告編號；目前 catalog 應包含 235 條習慣定義行與 185 條程式規則候選行。
+3. 每條規則必須保留自然語言原文、核心問題、觸發、證據、不確定性、停損／轉向與必要輸出，不得只保留抽象標籤。
+4. 規則必須區分 `deterministic_check`、`human_review` 與 `assistive_prompt`；價值判斷、關係、信任、公平、權責、說服與未定義項目不可自動升級為不可逆行動。
+5. preflight context 必須支援一體、兩面、三階段、四元素所需的 goal、stakeholders、evidence、reversible、failure cost、success criteria、output destination 與 human owner。
+6. 缺少目標、高代價且不可逆、證據未知／衝突／未驗證時，規則引擎必須阻擋或要求人工審查，不得用預設值假裝通過。
+7. 規則評估結果必須產生可供程式使用的 JSON 與可供人閱讀的 Markdown，且兩者來自同一份 evaluation object。
+8. 完整 catalog、checklist、compiled rules、測試與執行報告必須備份到 repository；資料庫中的歧義與跨報告衝突必須保留，不能為了自動化而刪除。

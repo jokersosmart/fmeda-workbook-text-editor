@@ -194,3 +194,24 @@ fmeda-acceptance `
 ```
 
 The same gate can be attached to the ordinary revision validator with `--recalc-report`. The Markdown report contains a manager summary, a reviewer table, engineer-level formula evidence, and provenance. All views use the same underlying decision; they only change the amount of explanation.
+
+
+## Complete thinking-rule catalog
+
+The repository now includes the complete source-derived thinking-rule catalog from the supplied decision database. All 45 numbered reports were read in full. The catalog contains 235 habit-definition lines and 185 program-rule candidate lines, with zero extraction errors. The source-derived JSON is under `resources/thinking/`, the reading checklist and rule-engine contract are under `docs/thinking/`, and the compiled catalog preserves every rule's report number and source filename.
+
+Compile the catalog and evaluate a project decision context with:
+
+```powershell
+thinking-rules compile `
+  --catalog resources/thinking/thinking_rule_catalog.json `
+  --output resources/thinking/compiled_program_rules.json
+
+thinking-rules evaluate `
+  --catalog resources/thinking/thinking_rule_catalog.json `
+  --context demo-output/thinking-rules/fmeda-context.json `
+  --json-output demo-output/thinking-rules/evaluation.json `
+  --markdown-output demo-output/thinking-rules/evaluation.md
+```
+
+The engine deliberately has three execution levels: `deterministic_check`, `human_review`, and `assistive_prompt`. Subjective, ambiguous, or value-laden habits remain review-required or prompt-only. The engine is a decision aid and does not replace domain review or the user's final judgment.
