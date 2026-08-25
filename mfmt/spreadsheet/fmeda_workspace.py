@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import csv
 import hashlib
-import html
 import json
 import re
 import shutil
@@ -161,11 +160,18 @@ def _relative(path: Path, root: Path) -> str:
 
 
 class FmedaWorkspaceBuilder:
-    """Build a source-safe FMEDA review workspace from one XLSX file."""
+    """Build a source-safe FMEDA core workspace from one XLSX file.
 
-    def __init__(self, source: str | Path, workspace: str | Path):
+    Editor output is optional and emitted by ``FmedaEditorAdapter`` so the
+    core can run without importing or requiring the Editor integration.
+    ``FmedaWorkspaceBuilder`` remains the compatibility name for the core
+    builder.
+    """
+
+    def __init__(self, source: str | Path, workspace: str | Path, *, include_editor: bool = False):
         self.source = Path(source).expanduser().resolve()
         self.workspace = Path(workspace).expanduser().resolve()
+        self.include_editor = include_editor
         if not self.source.is_file():
             raise FileNotFoundError(f"FMEDA source workbook not found: {self.source}")
         if self.source.suffix.lower() != ".xlsx":
@@ -220,16 +226,16 @@ class FmedaWorkspaceBuilder:
             edge_rows.extend(sheet_edges)
             review_items.extend(sheet_reviews)
             md_name = f"{_safe_sheet_name(name, index)}.md"
-            sheet_entries.append(
-                {
-                    "index": index,
-                    "name": name,
-                    "json_file": f"normalized/sheets/{sheet_json_path.name}",
-                    "md_file": f"editor/sheets/{md_name}",
-                    "formula_count": len(sheet_formula_rows),
-                    "review_count": len(sheet_reviews),
-                }
-            )
+            sheet_manifest = {
+                "index": index,
+                "name": name,
+                "json_file": f"normalized/sheets/{sheet_json_path.name}",
+                "formula_count": len(sheet_formula_rows),
+                "review_count": len(sheet_reviews),
+            }
+            if self.include_editor:
+                sheet_manifest["md_file"] = f"editor/sheets/{md_name}"
+            sheet_entries.append(sheet_manifest)
 
         workbook_model = {
             "schema_version": SCHEMA_VERSION,
@@ -266,9 +272,18 @@ class FmedaWorkspaceBuilder:
         self._write_dependency_edges(edge_rows)
         self._write_review_items(review_items)
         self._write_summary(workbook_model, formula_rows, edge_rows, review_items)
-        self._write_editor_workspace(
-            workbook_model, sheet_entries, formula_rows, review_items, source_hash
-        )
+        editor_manifest = None
+        if self.include_editor:
+            from .fmeda_editor_adapter import FmedaEditorAdapter
+
+            editor_manifest = FmedaEditorAdapter().emit(
+                self.workspace,
+                workbook_model,
+                sheet_entries,
+                formula_rows,
+                review_items,
+                source_hash,
+            )
 
         exported_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         manifest = {
@@ -284,7 +299,7 @@ class FmedaWorkspaceBuilder:
             "dependency_edge_count": len(edge_rows),
             "review_item_count": len(review_items),
             "calculation_mode": "source_cached_values",
-            "editor_root": "editor",
+            "editor": editor_manifest,
             "sheets": sheet_entries,
         }
         (self.workspace / "manifest.json").write_text(
@@ -296,14 +311,16 @@ class FmedaWorkspaceBuilder:
         return manifest
 
     def _make_dirs(self) -> None:
-        for relative in (
+        directories = [
             "source",
             "derived",
             "normalized/sheets",
-            "editor/sheets",
             "reports",
             "mappings",
-        ):
+        ]
+        if self.include_editor:
+            directories.append("editor/sheets")
+        for relative in directories:
             (self.workspace / relative).mkdir(parents=True, exist_ok=True)
 
     @staticmethod
@@ -512,232 +529,6 @@ class FmedaWorkspaceBuilder:
             "\n".join(lines), encoding="utf-8"
         )
 
-    def _write_editor_workspace(
-        self,
-        workbook: dict[str, Any],
-        sheets: list[dict[str, Any]],
-        formulas: list[dict[str, Any]],
-        reviews: list[dict[str, Any]],
-        source_hash: str,
-    ) -> None:
-        editor_root = self.workspace / "editor"
-        formula_by_sheet: dict[str, list[dict[str, Any]]] = {}
-        for row in formulas:
-            formula_by_sheet.setdefault(str(row["sheet"]), []).append(row)
-        review_by_sheet: dict[str, list[dict[str, Any]]] = {}
-        for item in reviews:
-            sheet = str(item["source_cell"]).split("!", 1)[0]
-            review_by_sheet.setdefault(sheet, []).append(item)
-
-        blocks: list[dict[str, Any]] = []
-        groups: list[dict[str, Any]] = []
-        documents: list[dict[str, Any]] = []
-        order = 0
-        for sheet in sheets:
-            sheet_name = str(sheet["name"])
-            stem = Path(str(sheet["md_file"])).name
-            md_path = editor_root / "sheets" / stem
-            sheet_formulas = formula_by_sheet.get(sheet_name, [])
-            sheet_reviews = review_by_sheet.get(sheet_name, [])
-            md_lines = [
-                f"# {sheet_name}",
-                "",
-                "> FMEDA 工作表審查頁。此頁是 Editor 的人讀視圖；原始公式與完整依賴請回查 formula catalog。",
-                "",
-                f"**來源工作表**：`{sheet_name}`  ",
-                f"**公式數**：{len(sheet_formulas)}  ",
-                f"**待審查項目**：{len(sheet_reviews)}  ",
-                f"**來源 SHA-256**：`{source_hash}`",
-                "",
-                "## 結果與公式索引",
-                "",
-                "| 儲存格 | 快取結果 | 狀態 | 公式 ID |",
-                "|---|---:|---|---|",
-            ]
-            visible = sheet_formulas[:MAX_FORMULA_BLOCKS_PER_SHEET]
-            for row in visible:
-                cached = str(row["cached_value"] or "").replace("|", "\\|")
-                md_lines.append(
-                    f"| `{row['source_cell']}` | {cached} | `{row['status']}` | `{row['formula_id']}` |"
-                )
-                md_lines.extend(
-                    [
-                        "",
-                        f"### {row['formula_id']}",
-                        "",
-                        f"- 來源：`{row['source_cell']}`",
-                        f"- 狀態：`{row['status']}`",
-                        f"- 原始公式：`{row['formula_raw']}`",
-                        f"- 函數：`{row['function_names'] or 'none'}`",
-                        f"- 依賴：`{row['dependencies']}`",
-                        "",
-                    ]
-                )
-            if len(sheet_formulas) > MAX_FORMULA_BLOCKS_PER_SHEET:
-                md_lines.extend(
-                    [
-                        "",
-                        f"> 公式明細共 {len(sheet_formulas)} 筆；此頁先顯示前 {MAX_FORMULA_BLOCKS_PER_SHEET} 筆，完整內容請查看 `../../normalized/formula_catalog.csv`。",
-                        "",
-                    ]
-                )
-            md_lines.extend(["## 待審查項目", ""])
-            if sheet_reviews:
-                for item in sheet_reviews:
-                    md_lines.append(
-                        f"- **{item['kind']}** `{item['source_cell']}`：{item['message']}（狀態：`{item['status']}`）"
-                    )
-            else:
-                md_lines.append("目前沒有此工作表的待審查項目。")
-            md_path.write_text("\n".join(md_lines) + "\n", encoding="utf-8")
-
-            document_id = f"doc-{_safe_sheet_name(sheet_name, int(sheet['index']))}"
-            documents.append(
-                {
-                    "id": document_id,
-                    "relative_path": f"sheets/{stem}",
-                    "name": stem,
-                    "display_label": sheet_name,
-                    "source_id": f"sheet:{sheet_name}",
-                }
-            )
-            group_id = f"group-{document_id}"
-            member_ids: list[str] = []
-            summary_id = f"block-{document_id}-summary"
-            member_ids.append(summary_id)
-            blocks.append(
-                {
-                    "id": summary_id,
-                    "ref_id": f"{sheet_name}:summary",
-                    "source_id": f"sheet:{sheet_name}",
-                    "reference_kind": "GRP",
-                    "display_label": f"{sheet_name} summary",
-                    "order": order,
-                    "structure": "paragraph",
-                    "semantic_kind": "note",
-                    "markdown": f"# {sheet_name}\n\nFMEDA 工作表摘要與審查入口。",
-                    "html": f"<h1>{html.escape(sheet_name)}</h1><p>FMEDA 工作表摘要與審查入口。</p>",
-                    "editable_html": False,
-                    "canvas_edit_mode": "markdown",
-                    "ignored": False,
-                    "group_id": group_id,
-                    "properties": {
-                        "source_revision": source_hash,
-                        "editability": "read_only_source_summary",
-                    },
-                    "source_cell": f"{sheet_name}!__summary__",
-                    "formula_id": None,
-                    "editability": "read_only_source_summary",
-                }
-            )
-            order += 1
-            for row in visible:
-                block_id = f"block-{row['formula_id']}"
-                member_ids.append(block_id)
-                blocks.append(
-                    {
-                        "id": block_id,
-                        "ref_id": row["source_cell"],
-                        "source_id": row["formula_id"],
-                        "reference_kind": "BLK",
-                        "display_label": row["source_cell"],
-                        "order": order,
-                        "structure": "paragraph",
-                        "semantic_kind": "example",
-                        "markdown": f"### {row['formula_id']}\n\n`{row['formula_raw']}`",
-                        "html": f"<h3>{html.escape(row['formula_id'])}</h3><p><code>{html.escape(str(row['formula_raw']))}</code></p>",
-                        "editable_html": False,
-                        "canvas_edit_mode": "markdown",
-                        "ignored": False,
-                        "group_id": group_id,
-                        "properties": {
-                            "source_revision": source_hash,
-                            "formula_status": str(row["status"]),
-                            "cached_value": str(row["cached_value"]),
-                        },
-                        "source_cell": row["source_cell"],
-                        "formula_id": row["formula_id"],
-                        "editability": "read_only_formula",
-                    }
-                )
-                order += 1
-            groups.append(
-                {
-                    "id": group_id,
-                    "ref_id": f"{sheet_name}:section",
-                    "source_id": f"sheet:{sheet_name}",
-                    "display_label": sheet_name,
-                    "reference_kind": "GRP",
-                    "group_type": "Section",
-                    "block_ids": member_ids,
-                    "properties": {
-                        "section_title": sheet_name,
-                        "section_level": "1",
-                        "grouping_scope": "sheet",
-                        "grouping_source": "fmeda_workspace_builder",
-                    },
-                }
-            )
-
-        sidecar = {
-            "schema_version": EDITOR_SIDECAR_SCHEMA,
-            "source_revision": {"sha256": source_hash, "schema_version": SCHEMA_VERSION},
-            "documents": documents,
-            "groups": groups,
-            "blocks": blocks,
-        }
-        (editor_root / "blocks.sidecar.json").write_text(
-            json.dumps(sidecar, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-        )
-        (editor_root / "relations.json").write_text(
-            json.dumps(
-                {
-                    "schema_version": RELATIONS_SCHEMA,
-                    "source_revision": {"sha256": source_hash},
-                    "relations": [],
-                },
-                ensure_ascii=False,
-                indent=2,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        index_lines = [
-            "# FMEDA Editor Workspace",
-            "",
-            "> 使用 Markdown Block Editor 開啟此目錄；原始 Excel 位於 `../source/`，衍生 Excel 位於 `../derived/`。",
-            "",
-            f"**來源檔**：`{workbook['source']['filename']}`  ",
-            f"**來源 SHA-256**：`{source_hash}`  ",
-            f"**工作表數**：{len(sheets)}  ",
-            f"**公式數**：{sum(int(sheet['formula_count']) for sheet in sheets)}",
-            "",
-            "## 工作表",
-            "",
-            "| # | 工作表 | Editor 文件 | 公式數 | 待審查 |",
-            "|---:|---|---|---:|---:|",
-        ]
-        for sheet in sheets:
-            name = str(sheet["name"]).replace("|", "\\|")
-            md_name = Path(str(sheet["md_file"])).name
-            index_lines.append(
-                f"| {sheet['index']} | {name} | [{md_name}](sheets/{md_name}) | {sheet['formula_count']} | {sheet['review_count']} |"
-            )
-        index_lines.extend(
-            [
-                "",
-                "## 相關資料",
-                "",
-                "- [Step03_summary.md](../normalized/Step03_summary.md)",
-                "- [formula_catalog.csv](../normalized/formula_catalog.csv)",
-                "- [dependency_edges.csv](../normalized/dependency_edges.csv)",
-                "- [review_items.json](../normalized/review_items.json)",
-                "- [import-report.md](../reports/import-report.md)",
-                "",
-            ]
-        )
-        (editor_root / "index.md").write_text("\n".join(index_lines), encoding="utf-8")
-
     @staticmethod
     def _build_import_report(manifest: dict[str, Any], reviews: list[dict[str, Any]]) -> str:
         lines = [
@@ -772,3 +563,10 @@ class FmedaWorkspaceBuilder:
             if len(reviews) > 100:
                 lines.append(f"- 其餘 {len(reviews) - 100} 項請查看 `normalized/review_items.json`。")
         return "\n".join(lines) + "\n"
+
+
+# Public names: the explicit core name documents the new boundary, while the
+# historical name remains available for callers from the earlier slice.
+FmedaCoreWorkspaceBuilder = FmedaWorkspaceBuilder
+
+__all__ = ["FmedaCoreWorkspaceBuilder", "FmedaWorkspaceBuilder"]

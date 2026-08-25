@@ -14,7 +14,7 @@ from .fmeda_external import (
 from .fmeda_large import LargeFmedaValidator
 from .fmeda_patch import FmedaPatchApplier
 from .fmeda_recalc import LibreOfficeRecalculator
-from .fmeda_workspace import FmedaWorkspaceBuilder
+from .fmeda_workspace import FmedaCoreWorkspaceBuilder, FmedaWorkspaceBuilder
 
 __all__ = [
     "FmedaAcceptanceProfile",
@@ -28,7 +28,17 @@ __all__ = [
     "discover_external_links",
     "materialize_external_workbooks",
     "resolve_external_links",
+    "FmedaCoreWorkspaceBuilder",
     "FmedaWorkspaceBuilder",
+    "FmedaEditorAdapter",
     "LargeFmedaValidator",
     "LibreOfficeRecalculator",
 ]
+
+
+def __getattr__(name: str):
+    if name == "FmedaEditorAdapter":
+        from .fmeda_editor_adapter import FmedaEditorAdapter
+
+        return FmedaEditorAdapter
+    raise AttributeError(name)

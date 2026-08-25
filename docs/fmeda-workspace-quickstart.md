@@ -2,12 +2,12 @@
 
 ## 目的
 
-`mfmt spreadsheet fmeda-workspace` 會把一份 `.xlsx` 轉成 source-safe FMEDA workspace。原始檔不會被覆蓋；系統會複製來源到 `source/`，建立同內容的衍生工作簿到 `derived/`，並產生 workbook-v2 draft、公式目錄、依賴索引、審查清單與 Editor Markdown workspace。
+`fmeda-workspace` 會把一份 `.xlsx` 轉成 source-safe FMEDA core workspace。原始檔不會被覆蓋；系統會複製來源到 `source/`，建立同內容的衍生工作簿到 `derived/`，並產生 workbook-v2、公式目錄、依賴索引、審查清單與人類可讀 Markdown。Editor workspace 是可選 adapter，不是核心必要依賴。
 
 ## 執行
 
 ```powershell
-mfmt spreadsheet fmeda-workspace `
+fmeda-workspace `
   RD-03-008-01FMEDAReport.xlsx `
   --output-dir out/fmeda-RD-03-008-01
 ```
@@ -15,7 +15,7 @@ mfmt spreadsheet fmeda-workspace `
 在 Windows PowerShell 中，反引號是換行符號；也可以寫成單行：
 
 ```powershell
-mfmt spreadsheet fmeda-workspace RD-03-008-01FMEDAReport.xlsx -o out/fmeda-RD-03-008-01
+fmeda-workspace RD-03-008-01FMEDAReport.xlsx -o out/fmeda-RD-03-008-01
 ```
 
 ## 產物
@@ -34,18 +34,24 @@ out/fmeda-RD-03-008-01/
 │   ├── dependency_edges.csv
 │   ├── review_items.json
 │   └── sheets/*.json
-├── editor/
-│   ├── index.md
-│   ├── sheets/*.md
-│   ├── blocks.sidecar.json
-│   └── relations.json
 └── reports/
     └── import-report.md
+
+# 只有使用 --adapter editor 時才會額外產生 editor/ 目錄：
+# index.md、sheets/*.md、blocks.sidecar.json、relations.json
 ```
 
-## 與 Editor 搭配
+## 與 Editor 搭配（可選）
 
-第一階段可直接將 `editor/` 作為 Markdown workspace 閱讀。`editor/index.md` 是入口，`editor/sheets/*.md` 是依工作表拆分的文件。每個公式明細以 `formula_id`、來源儲存格與原始公式標記；完整公式仍以 `normalized/formula_catalog.csv` 為準。
+核心不需要 Editor 即可完成純文字化、閱讀與驗證。若要使用 Markdown Block Editor，再以 adapter 模式產生 `editor/`：
+
+```powershell
+fmeda-workspace RD-03-008-01FMEDAReport.xlsx `
+  --output-dir out/fmeda-RD-03-008-01-editor `
+  --adapter editor
+```
+
+此時 `editor/index.md` 是入口，`editor/sheets/*.md` 是依工作表拆分的文件。每個公式明細以 `formula_id`、來源儲存格與原始公式標記；完整公式仍以 `normalized/formula_catalog.csv` 為準。
 
 `blocks.sidecar.json` 目前把來源摘要與公式明細標成唯讀，並保留 `source_cell`、`formula_id`、`source_revision` 與 `editability`。這個切片先不開放普通 Markdown 編輯覆蓋公式；後續的 review notes 與 input patch 必須另外經過權限與來源版本檢查。
 

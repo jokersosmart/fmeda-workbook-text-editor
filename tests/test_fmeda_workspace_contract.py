@@ -73,7 +73,7 @@ def test_build_creates_editor_workspace_with_provenance(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     _make_fixture(source)
 
-    FmedaWorkspaceBuilder(source, workspace).build()
+    FmedaWorkspaceBuilder(source, workspace, include_editor=True).build()
 
     assert (workspace / "normalized" / "Step03_workbook.json").is_file()
     assert (workspace / "normalized" / "Step03_summary.md").is_file()

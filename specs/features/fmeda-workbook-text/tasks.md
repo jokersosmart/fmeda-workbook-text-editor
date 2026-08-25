@@ -14,7 +14,9 @@
 - [x] 1-4. 建立 range-level dependency edges，分辨 same-sheet、cross-sheet、external。
 - [x] 1-5. 建立 review items，保留 formula error、unresolved external reference、unsupported feature。
 - [x] 1-6. 產生 reviewer／management summary Markdown。
-- [x] 1-7. 產生 Editor-compatible Markdown 與 sidecar metadata。
+- [x] 1-7. 將核心 workspace 設為不依賴 Editor 的 core-only 輸出。
+- [x] 1-8. 以 `--adapter editor` opt-in 產生 Editor-compatible Markdown 與 sidecar metadata。
+- [x] 1-9. 驗證 core 與 Editor adapter 共用相同 source／formula provenance。
 
 ## Slice 2 — Editor 協同與受控修改
 

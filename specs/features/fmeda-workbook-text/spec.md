@@ -2,17 +2,17 @@
 
 **Feature Branch**: `fmeda-workbook-text`  
 **Status**: Draft / Vertical Slice 1  
-**Input**: 將原始 FMEDA Excel 轉成可追溯的純文字模型，並與 Markdown Block Editor 協同使用。
+**Input**: 將原始 FMEDA Excel 轉成可獨立運作、可追溯的純文字模型；Markdown Block Editor 為可選的協同 adapter。
 
 ## 1. 目標與邊界
 
-本功能的第一個 vertical slice 必須保護原始 Excel 不被修改，建立一份衍生 Excel 工作版本，並輸出可供審查者、主管、跨部門與 Editor 使用的結構化 workspace。第一版先完成單一 FMEDA 的完整匯入與驗證；未來其他類似 Excel 透過 profile detection 與 mapping 規則加入，不將第一份檔案的列號與欄位位置寫死在共通核心。
+本功能的第一個 vertical slice 必須保護原始 Excel 不被修改，建立一份衍生 Excel 工作版本，並輸出可供審查者、主管與跨部門使用的獨立結構化純文字 workspace；若啟用 Editor，則額外產生相容 adapter 輸出。第一版先完成單一 FMEDA 的完整匯入與驗證；未來其他類似 Excel 透過 profile detection 與 mapping 規則加入，不將第一份檔案的列號與欄位位置寫死在共通核心。
 
 本階段不承諾脫離 Excel 的獨立重算，也不允許普通 Markdown 編輯直接覆蓋公式。Excel 的快取值必須明確標記為來源快取值，而不是宣稱為最新重算結果。
 
 ## 2. 使用者與主要價值
 
-主要使用者為 FMEDA 工程師以外的審查者、主管與跨部門人員；FMEDA 工程師則需要能由結果回查公式與來源儲存格。Markdown Block Editor 是協同閱讀、審查、註記與受控編輯入口，不取代 Excel 的既有專業工作流程。
+主要使用者為 FMEDA 工程師以外的審查者、主管與跨部門人員；FMEDA 工程師則需要能由結果回查公式與來源儲存格。純文字核心必須不依賴 Editor；Markdown Block Editor 是可選的協同閱讀、審查、註記與受控編輯介面，不取代 Excel 的既有專業工作流程。
 
 ## 3. User Stories
 
@@ -50,13 +50,13 @@
 3. 同表、跨表與外部工作簿引用必須有不同的 `reference_kind`。
 4. 無法解析的公式仍保留原文並標記 risk，不得靜默丟棄。
 
-### US-004：產生 Editor 可用的 Markdown workspace（P1）
+### US-004：產生可選的 Editor adapter workspace（P1）
 
-作為審查者，我可以在現有 Markdown Block Editor 中閱讀摘要、結果、風險與審查項目，並從重要結果回查公式與來源。
+作為需要協作的審查者，我可以選擇在現有 Markdown Block Editor 中閱讀摘要、結果、風險與審查項目，並從重要結果回查公式與來源；未使用 Editor 時，仍可直接閱讀核心 Markdown 與報告。
 
 **Acceptance Criteria**：
 
-1. workspace 產生 `editor/sheets/*.md`、`editor/blocks.sidecar.json` 與 `editor/relations.json` 的相容位置。
+1. 使用 `--adapter editor` 時，workspace 產生 `editor/sheets/*.md`、`editor/blocks.sidecar.json` 與 `editor/relations.json` 的相容位置；core-only 模式不產生 `editor/` 目錄。
 2. Markdown 本體顯示人類可讀摘要；公式原文與依賴以可回查的 detail block 或索引連結提供。
 3. 原始公式與來源快取結果預設為唯讀；review notes 可編輯。
 4. 不破壞既有 Block ID、Group、TOC、sidecar 與 relations 契約。
@@ -78,7 +78,7 @@
 - **Traceability**：所有重要結果均可回到來源檔、工作表、儲存格與公式 ID。
 - **Reversibility**：任一階段失敗都能刪除 workspace 而不影響 source。
 - **Scalability**：大型工作表使用 sparse extraction 與 per-sheet externalization；摘要不得強制展開全部公式。
-- **Editor compatibility**：Editor 只讀取 workspace 的 Markdown 與 sidecar；FMEDA metadata 透過 extension 欄位保存。
+- **Optional Editor compatibility**：核心不依賴 Editor；啟用時，Editor adapter 只讀取共用 workspace 的 Markdown、sidecar 與 provenance，FMEDA metadata 透過 extension 欄位保存。
 - **Explicit uncertainty**：`cached_value`、`recalculated_value`、`error`、`unresolved` 必須分開表示。
 
 ## 5. 後續不在本 slice 內的能力

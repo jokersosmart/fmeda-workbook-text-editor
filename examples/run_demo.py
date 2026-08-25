@@ -55,7 +55,7 @@ def main() -> None:
     make_demo_source(source)
     source_before = sha256(source)
 
-    manifest = FmedaWorkspaceBuilder(source, workspace).build()
+    manifest = FmedaWorkspaceBuilder(source, workspace, include_editor=True).build()
     patch = {
         "schema_version": "fmeda-patch-v1",
         "patch_id": "demo-review-rate-001",
