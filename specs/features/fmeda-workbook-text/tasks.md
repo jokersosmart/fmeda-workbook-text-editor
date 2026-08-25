@@ -44,3 +44,14 @@
 - [ ] 5-2. 建立 evaluator contract 與誤差／錯誤語意規則。
 - [ ] 5-3. 以 Excel 結果作為 baseline，執行全量結果比對。
 - [ ] 5-4. 只有在差異可解釋且通過人工審查後，才開放獨立重算。
+
+## Slice 6 — 真實大型 FMEDA 與公式重算
+
+- [x] 6-1. 建立真實 FMEDA inventory 基線：27 sheets、597,485 formulas、316 merged ranges、10 defined names。
+- [x] 6-2. 建立 per-sheet JSONL chunks 與 atomic checkpoint，支援中斷後 resume。
+- [x] 6-3. 比較公式原文、raw value、cached value、error state 與 cell presence。
+- [x] 6-4. 比較 merged ranges、worksheet dimension、data validations、conditional formatting、tables 與 freeze panes。
+- [x] 6-5. 建立 LibreOffice Calc 隔離 profile 重算與新檔輸出。
+- [ ] 6-6. 以真實 FMEDA 的全部公式函數建立獨立 evaluator allowlist 與結果 tolerance。
+- [x] 6-7a. 完成真實 16 MB 工作簿的 Calc 重算、27/27 worksheet validation 與可恢復 checkpoint。
+- [ ] 6-7b. 完成 cached-value warnings、error-state changes 與 metadata changes 的工程師人工抽樣審查。

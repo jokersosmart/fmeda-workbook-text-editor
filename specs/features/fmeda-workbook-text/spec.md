@@ -111,3 +111,43 @@
 4. 公式 cached value 差異可以標記為 warning，因為本 slice 不宣稱完成獨立重算。
 5. `fmeda-validate` 必須輸出 Markdown report，並以 `PASS`、`PASS_WITH_WARNINGS` 或 `FAIL` 結束。
 6. `FAIL` 時 CLI 必須以非零狀態結束，避免未經審查的 revision 被自動接受。
+
+### US-008：大型 FMEDA 可恢復驗證（P1，大檔 slice）
+
+作為審查者，我可以對大型 FMEDA 的兩個 revision 執行分頁、分批且可恢復的 validation；即使中途停止，也不需要從第一張工作表重新開始，並且能知道哪些工作表已完成。
+
+**Acceptance Criteria**：
+
+1. validator 必須以 read-only workbook streams 處理工作表，避免把整個大型 workbook 展開成單一 cell model。
+2. 每張工作表完成後，必須以 atomic write 更新 checkpoint 與該工作表 JSONL chunk。
+3. base／target hash 改變時，舊 checkpoint 不得被誤用，必須重新開始。
+4. 未完成的執行狀態必須是 `INCOMPLETE`，不得被誤判為 `PASS`。
+5. merged ranges、data validations、conditional formatting、tables、freeze panes 與 worksheet dimension 必須被保留並可比較。
+
+### US-009：Excel-compatible 公式重算（P1，Calc slice）
+
+作為 FMEDA 工程師，我可以在不修改原始來源的前提下，使用 Excel-compatible engine 產生一份重算後的工作簿，並知道公式快取結果是否已由該 engine 寫入。
+
+**Acceptance Criteria**：
+
+1. 重算必須在暫存複本與隔離 profile 上執行，不得直接寫入 source workbook。
+2. 輸出工作簿必須保留公式原文，並另外產生 source／output hash 與 formula／cached-result 統計。
+3. 重算引擎與執行狀態必須記錄；不可以把 LibreOffice 結果宣稱為 Python 獨立 evaluator 結果。
+4. 外部引用、Excel 不支援的 extension 或重算錯誤必須保留為風險狀態，交由人工審查。
+
+
+### US-010：真實大型工作簿 integration（P1，Calc + streaming validation slice）
+
+作為審查者，我可以對實際的大型 FMEDA 工作簿執行 Calc-compatible 重算與 27 張工作表的可恢復 validation，並看到哪些差異已經可解釋、哪些仍需要工程師確認。
+
+**Acceptance Criteria**：
+
+1. 16 MB 等級工作簿可以完成所有 worksheet 的 streaming validation，不因單一 worksheet XML 約 177 MB 而要求整本 workbook materialization。
+2. formula cache 統計使用 worksheet XML streaming，不以四個 openpyxl workbook 物件同時掃描大型工作簿。
+3. shared formula follower 以 anchor 與相對位置展開後比較；空白、大小寫、`FALSE()`／`FALSE` 等等價語法不得被誤判為 formula change。
+4. 數值差異使用明確的相對／絕對容差；容差不適用於錯誤字串、公式原文、cell presence 或 metadata。
+5. 27/27 worksheet 完成、checkpoint 狀態為 `completed`，且 merged ranges 均保留為可比較 metadata。
+6. Calc 重算後的 cached-value 變化與 error-state 變化必須保留；未解釋差異應維持 `FAIL` 或 warning，不得自動轉成 `PASS`。
+7. 真實工作簿、重算檔與大型 JSONL chunks 不得進入版本控制；repository 只保存程式、契約、文件與去識別化的執行摘要。
+
+**Observed integration result**：27/27 worksheets completed；公式語意 blocking changes 為 0；浮點／非公式誤報在容差後為 0；剩餘 10 個 metadata／error-state blocking changes 與 2,774 個 cached-value warnings，已記錄於 `docs/real-fmeda-integration-report.md`。

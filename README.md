@@ -112,3 +112,46 @@ fmeda-validate `
 ```
 
 A `PASS` report means all observed changes were explicitly allowed and provenance hashes matched. `PASS_WITH_WARNINGS` means only formula cached-value changes were observed. `FAIL` means a human must review the revision before it can be accepted.
+
+## Large workbook validation
+
+For a large workbook, use `LargeFmedaValidator` or the `fmeda-validate-large` CLI with a base and target revision. The validator reads formula and cached-value streams in read-only mode, writes one JSONL chunk per sheet, and atomically updates `checkpoint.json` after each completed sheet. If a run is interrupted, rerun with the same base and target files and completed sheets are skipped; if either file hash changes, the checkpoint is reset.
+
+```powershell
+fmeda-validate-large `
+  RD-03-008-01FMEDAReport.xlsx `
+  out/RD-03-008-01FMEDAReport.recalculated.xlsx `
+  --output-dir out/validation-v1
+```
+
+The validator compares formula raw text, raw values, cached values, error state, cell presence, sheet order, merged ranges, data validations, conditional formatting, tables, freeze panes, and provenance hashes. Merged ranges and worksheet metadata are reported rather than silently discarded. A partial run is `INCOMPLETE`; only a complete run can be `PASS`, `PASS_WITH_WARNINGS`, or `FAIL`.
+
+## Excel-compatible formula recalculation
+
+`LibreOfficeRecalculator` uses a disposable headless LibreOffice profile and a temporary copy of the workbook. It never writes to the source path. The output is a new workbook with formulas preserved and formula cached results refreshed by Calc when the file is supported. The report records source hashes, output hash, formula count, cached-result count, and engine name.
+
+```powershell
+fmeda-recalculate `
+  demo-output/workspace/derived/RD-03-008-01FMEDAReport.rev-002.xlsx `
+  demo-output/workspace/derived/RD-03-008-01FMEDAReport.rev-002.recalculated.xlsx `
+  --report demo-output/workspace/reports/recalculation.rev-002.json
+```
+
+This is deliberately an Excel-compatible recalculation path, not a claim that Python independently implements every Excel function. A future independent evaluator must be introduced only after the real FMEDA formula corpus and comparison tolerance are measured.
+
+## Real large-workbook integration
+
+The large-workbook path has been exercised against the real 16 MB FMEDA input. It uses XML streaming, per-worksheet JSONL chunks, resumable checkpoints, merged-range and worksheet metadata comparison, and LibreOffice Calc recalculation on a temporary copy. The original workbook is never written.
+
+```powershell
+fmeda-recalculate RD-03-008-01FMEDAReport.xlsx `
+  --output out/RD-03-008-01FMEDAReport.recalculated.xlsx
+
+fmeda-validate-large RD-03-008-01FMEDAReport.xlsx `
+  out/RD-03-008-01FMEDAReport.recalculated.xlsx `
+  --output-dir out/validation-v1
+```
+
+The observed baseline was 27 worksheets, 597,485 formulas, 316 merged ranges, 10 defined names, and a largest worksheet XML entry of approximately 177 MB after decompression. The completed run validated 27/27 worksheets and reported all observed merged ranges as preserved. A `FAIL` status means the validator found blocking differences that still require engineering review; it is not silently converted to PASS.
+
+See `docs/real-fmeda-integration-report.md` for the observed result and remaining acceptance work. The real workbook and generated validation chunks are intentionally excluded from version control.
